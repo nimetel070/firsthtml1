@@ -3,191 +3,225 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Basic HTML Template</title>
+    <title>Triple Pendulum Animation</title>
     <style>
-        * {
+        body {
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        body {
-            background-color: #f5f5f5;
-            color: #333;
-            line-height: 1.6;
-            padding: 20px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        
-        header {
-            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-            color: white;
-            text-align: center;
-            padding: 2rem;
-            border-radius: 10px;
-            margin-bottom: 2rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        
-        h1 {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-        }
-        
-        nav {
-            background-color: #333;
-            border-radius: 8px;
-            margin-bottom: 2rem;
-        }
-        
-        nav ul {
             display: flex;
-            list-style: none;
             justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #1a1a2e;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
         }
-        
-        nav li {
-            margin: 0;
-        }
-        
-        nav a {
-            display: block;
-            color: white;
-            text-decoration: none;
-            padding: 1rem 1.5rem;
-            transition: background-color 0.3s;
-        }
-        
-        nav a:hover {
-            background-color: #555;
+        canvas {
             border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
         }
-        
-        .container {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 2rem;
-        }
-        
-        main {
-            flex: 3;
-            background-color: white;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        
-        aside {
-            flex: 1;
-            background-color: white;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        
-        footer {
+        .info {
+            position: absolute;
+            bottom: 20px;
+            color: rgba(255, 255, 255, 0.7);
             text-align: center;
-            padding: 2rem;
-            background-color: #333;
-            color: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        
-        .card {
-            background-color: #f9f9f9;
-            border-left: 4px solid #2575fc;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            border-radius: 8px;
-        }
-        
-        h2 {
-            color: #2575fc;
-            margin-bottom: 1rem;
-        }
-        
-        p {
-            margin-bottom: 1rem;
-        }
-        
-        @media (max-width: 768px) {
-            .container {
-                flex-direction: column;
-            }
-            
-            nav ul {
-                flex-direction: column;
-            }
-            
-            nav a {
-                text-align: center;
-            }
+            width: 100%;
         }
     </style>
 </head>
 <body>
-    <header>
-        <h1>My Basic HTML Page</h1>
-        <p>A simple responsive template with HTML5 and CSS</p>
-    </header>
-    
-    <nav>
-        <ul>
-            <li><a href="#">Home</a></li>
-            <li><a href="#">About</a></li>
-            <li><a href="#">Services</a></li>
-            <li><a href="#">Portfolio</a></li>
-            <li><a href="#">Contact</a></li>
-        </ul>
-    </nav>
-    
-    <div class="container">
-        <main>
-            <section class="card">
-                <h2>Welcome to HTML</h2>
-                <p>This is a basic HTML template that includes the essential elements of a web page. You can use this as a starting point for your own projects.</p>
-                <p>HTML (HyperText Markup Language) is the standard markup language for documents designed to be displayed in a web browser.</p>
-            </section>
-            
-            <section class="card">
-                <h2>Getting Started</h2>
-                <p>To create your own HTML page, you just need a text editor and a web browser. Simply save your file with a .html extension and open it in your browser.</p>
-                <p>This template includes:</p>
-                <ul>
-                    <li>HTML5 doctype declaration</li>
-                    <li>Basic page structure (html, head, body)</li>
-                    <li>Meta tags for character set and viewport</li>
-                    <li>Semantic elements (header, nav, main, aside, footer)</li>
-                    <li>Basic CSS styling</li>
-                    <li>Responsive design elements</li>
-                </ul>
-            </section>
-        </main>
+    <canvas id="pendulumCanvas"></canvas>
+    <div class="info">Triple Pendulum with Gravity Physics</div>
+
+    <script>
+        // Canvas setup
+        const canvas = document.getElementById('pendulumCanvas');
+        const ctx = canvas.getContext('2d');
         
-        <aside>
-            <h2>Sidebar</h2>
-            <p>This is a sidebar that typically contains additional information, links, or advertisements.</p>
-            <div class="card">
-                <h3>Did You Know?</h3>
-                <p>The first version of HTML was written by Tim Berners-Lee in 1993.</p>
-            </div>
-            <div class="card">
-                <h3>Resources</h3>
-                <p>Check out these HTML resources:</p>
-                <ul>
-                    <li><a href="#">HTML Tutorials</a></li>
-                    <li><a href="#">CSS Guides</a></li>
-                    <li><a href="#">JavaScript Examples</a></li>
-                </ul>
-            </div>
-        </aside>
-    </div>
-    
-    <footer>
-        <p>&copy; 2023 Basic HTML Template. All rights reserved.</p>
-    </footer>
+        // Set canvas size
+        canvas.width = Math.min(window.innerWidth * 0.9, 800);
+        canvas.height = Math.min(window.innerHeight * 0.9, 600);
+        
+        // Pendulum parameters
+        const origin = { x: canvas.width / 2, y: canvas.height / 3 };
+        const rodLengths = [canvas.height / 4, canvas.height / 4 * 0.8, canvas.height / 4 * 0.6];
+        const bobRadii = [12, 10, 8];
+        const bobMasses = [40, 30, 20];
+        
+        // Angles and velocities (initial conditions)
+        let angles = [Math.PI / 2, Math.PI / 1.5, Math.PI / 1.2];
+        let angularVelocities = [0, 0, 0];
+        let angularAccelerations = [0, 0, 0];
+        
+        // Physics constants
+        const gravity = 0.5;
+        const damping = 0.995; // Air resistance
+        
+        // Trail settings
+        const maxTrailLength = 200;
+        const trails = [[], [], []];
+        const trailColors = ['#ff5e5e', '#5e5eff', '#5eff5e'];
+        
+        // Calculate pendulum bob positions
+        function calculatePositions() {
+            const positions = [];
+            
+            // First pendulum
+            positions.push({
+                x: origin.x + rodLengths[0] * Math.sin(angles[0]),
+                y: origin.y + rodLengths[0] * Math.cos(angles[0])
+            });
+            
+            // Second pendulum (connected to first)
+            positions.push({
+                x: positions[0].x + rodLengths[1] * Math.sin(angles[1]),
+                y: positions[0].y + rodLengths[1] * Math.cos(angles[1])
+            });
+            
+            // Third pendulum (connected to second)
+            positions.push({
+                x: positions[1].x + rodLengths[2] * Math.sin(angles[2]),
+                y: positions[1].y + rodLengths[2] * Math.cos(angles[2])
+            });
+            
+            return positions;
+        }
+        
+        // Update physics using Lagrangian mechanics
+        function updatePhysics() {
+            // Simplified equations of motion for triple pendulum
+            const cos12 = Math.cos(angles[0] - angles[1]);
+            const cos13 = Math.cos(angles[0] - angles[2]);
+            const cos23 = Math.cos(angles[1] - angles[2]);
+            
+            const sin12 = Math.sin(angles[0] - angles[1]);
+            const sin13 = Math.sin(angles[0] - angles[2]);
+            const sin23 = Math.sin(angles[1] - angles[2]);
+            
+            // Mass combinations
+            const m1 = bobMasses[0];
+            const m2 = bobMasses[1];
+            const m3 = bobMasses[2];
+            
+            const L1 = rodLengths[0];
+            const L2 = rodLengths[1];
+            const L3 = rodLengths[2];
+            
+            // Angular velocity squared terms
+            const w1Sq = angularVelocities[0] * angularVelocities[0];
+            const w2Sq = angularVelocities[1] * angularVelocities[1];
+            const w3Sq = angularVelocities[2] * angularVelocities[2];
+            
+            // Equations of motion (simplified for performance)
+            angularAccelerations[0] = (-gravity * (2 * m1 + m2 + m3) * Math.sin(angles[0]) -
+                                      m2 * gravity * Math.sin(angles[0] - 2 * angles[1]) -
+                                      m3 * gravity * Math.sin(angles[0] - 2 * angles[2]) +
+                                      2 * sin12 * m2 * (w2Sq * L2 + w1Sq * L1 * cos12) +
+                                      2 * sin13 * m3 * (w3Sq * L3 + w1Sq * L1 * cos13)) /
+                                      (2 * L1 * (m1 + m2 + m3 - m2 * Math.cos(2 * angles[0] - 2 * angles[1]) - 
+                                      m3 * Math.cos(2 * angles[0] - 2 * angles[2])));
+            
+            angularAccelerations[1] = (2 * sin12 * (w1Sq * L1 * (m1 + m2 + m3) -
+                                      gravity * (m1 + m2 + m3) * Math.cos(angles[0]) +
+                                      w2Sq * L2 * m2 * cos12) +
+                                      2 * sin23 * m3 * (w3Sq * L3 + w2Sq * L2 * cos23) -
+                                      m3 * gravity * Math.sin(angles[1] - 2 * angles[2])) /
+                                      (2 * L2 * (m1 + m2 + m3 - m2 * Math.cos(2 * angles[0] - 2 * angles[1]) - 
+                                      m3 * Math.cos(2 * angles[1] - 2 * angles[2])));
+            
+            angularAccelerations[2] = (2 * sin13 * (w1Sq * L1 * (m1 + m2 + m3) -
+                                      gravity * (m1 + m2 + m3) * Math.cos(angles[0]) +
+                                      w3Sq * L3 * m3 * cos13) +
+                                      2 * sin23 * (w2Sq * L2 * (m1 + m2 + m3) -
+                                      gravity * (m1 + m2 + m3) * Math.cos(angles[1]) +
+                                      w3Sq * L3 * m3 * cos23)) /
+                                      (2 * L3 * (m1 + m2 + m3 - m3 * Math.cos(2 * angles[0] - 2 * angles[2]) - 
+                                      m3 * Math.cos(2 * angles[1] - 2 * angles[2])));
+            
+            // Update angular velocities and angles
+            for (let i = 0; i < 3; i++) {
+                angularVelocities[i] += angularAccelerations[i];
+                angularVelocities[i] *= damping; // Apply damping
+                angles[i] += angularVelocities[i];
+            }
+        }
+        
+        // Draw the pendulum and trails
+        function draw() {
+            // Clear canvas with a slight alpha for trail effect
+            ctx.fillStyle = 'rgba(26, 26, 46, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const positions = calculatePositions();
+            
+            // Draw trails
+            for (let i = 0; i < 3; i++) {
+                // Add current position to trail
+                trails[i].push({ x: positions[i].x, y: positions[i].y });
+                
+                // Limit trail length
+                if (trails[i].length > maxTrailLength) {
+                    trails[i].shift();
+                }
+                
+                // Draw trail
+                ctx.beginPath();
+                ctx.moveTo(trails[i][0].x, trails[i][0].y);
+                
+                for (let j = 1; j < trails[i].length; j++) {
+                    ctx.lineTo(trails[i][j].x, trails[i][j].y);
+                }
+                
+                ctx.strokeStyle = trailColors[i];
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            
+            // Draw rods
+            ctx.beginPath();
+            ctx.moveTo(origin.x, origin.y);
+            ctx.lineTo(positions[0].x, positions[0].y);
+            ctx.lineTo(positions[1].x, positions[1].y);
+            ctx.lineTo(positions[2].x, positions[2].y);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw bobs
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                ctx.arc(positions[i].x, positions[i].y, bobRadii[i], 0, Math.PI * 2);
+                ctx.fillStyle = trailColors[i];
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+            
+            // Draw origin point
+            ctx.beginPath();
+            ctx.arc(origin.x, origin.y, 5, 0, Math.PI * 2);
+            ctx.fillStyle = 'white';
+            ctx.fill();
+        }
+        
+        // Animation loop
+        function animate() {
+            updatePhysics();
+            draw();
+            requestAnimationFrame(animate);
+        }
+        
+        // Start animation
+        animate();
+        
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            canvas.width = Math.min(window.innerWidth * 0.9, 800);
+            canvas.height = Math.min(window.innerHeight * 0.9, 600);
+            origin.x = canvas.width / 2;
+            origin.y = canvas.height / 3;
+        });
+    </script>
 </body>
 </html>
