@@ -1,227 +1,379 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Triple Pendulum Animation</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #1a1a2e;
-            overflow: hidden;
-            font-family: Arial, sans-serif;
-        }
-        canvas {
-            border-radius: 8px;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-        }
-        .info {
-            position: absolute;
-            bottom: 20px;
-            color: rgba(255, 255, 255, 0.7);
-            text-align: center;
-            width: 100%;
-        }
-    </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Triple Pendulum — Gravity Animation with Intercept Trails</title>
+<style>
+  html,body{height:100%;margin:0;background:#0b0c10;overflow:hidden}
+  canvas{display:block}
+  /* small caption in corner */
+  .credit{
+    position:fixed; right:8px; bottom:8px;
+    color:#9aa0b3; font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;
+    font-size:12px; opacity:0.6;
+    pointer-events:none;
+  }
+</style>
 </head>
 <body>
-    <canvas id="pendulumCanvas"></canvas>
-    <div class="info">Triple Pendulum with Gravity Physics</div>
+<canvas id="main"></canvas>
+<canvas id="trail" style="position:fixed;left:0;top:0;pointer-events:none"></canvas>
+<div class="credit">Triple pendulum — gravity, trails & intercept stamps</div>
 
-    <script>
-        // Canvas setup
-        const canvas = document.getElementById('pendulumCanvas');
-        const ctx = canvas.getContext('2d');
-        
-        // Set canvas size
-        canvas.width = Math.min(window.innerWidth * 0.9, 800);
-        canvas.height = Math.min(window.innerHeight * 0.9, 600);
-        
-        // Pendulum parameters
-        const origin = { x: canvas.width / 2, y: canvas.height / 3 };
-        const rodLengths = [canvas.height / 4, canvas.height / 4 * 0.8, canvas.height / 4 * 0.6];
-        const bobRadii = [12, 10, 8];
-        const bobMasses = [40, 30, 20];
-        
-        // Angles and velocities (initial conditions)
-        let angles = [Math.PI / 2, Math.PI / 1.5, Math.PI / 1.2];
-        let angularVelocities = [0, 0, 0];
-        let angularAccelerations = [0, 0, 0];
-        
-        // Physics constants
-        const gravity = 0.5;
-        const damping = 0.995; // Air resistance
-        
-        // Trail settings
-        const maxTrailLength = 200;
-        const trails = [[], [], []];
-        const trailColors = ['#ff5e5e', '#5e5eff', '#5eff5e'];
-        
-        // Calculate pendulum bob positions
-        function calculatePositions() {
-            const positions = [];
-            
-            // First pendulum
-            positions.push({
-                x: origin.x + rodLengths[0] * Math.sin(angles[0]),
-                y: origin.y + rodLengths[0] * Math.cos(angles[0])
-            });
-            
-            // Second pendulum (connected to first)
-            positions.push({
-                x: positions[0].x + rodLengths[1] * Math.sin(angles[1]),
-                y: positions[0].y + rodLengths[1] * Math.cos(angles[1])
-            });
-            
-            // Third pendulum (connected to second)
-            positions.push({
-                x: positions[1].x + rodLengths[2] * Math.sin(angles[2]),
-                y: positions[1].y + rodLengths[2] * Math.cos(angles[2])
-            });
-            
-            return positions;
+<script>
+(() => {
+  const canvas = document.getElementById('main');
+  const trailCanvas = document.getElementById('trail');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  const tctx = trailCanvas.getContext('2d', { alpha: true });
+
+  // Resize to fit window / devicePixelRatio
+  function resize() {
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const w = Math.max(600, window.innerWidth);
+    const h = Math.max(400, window.innerHeight);
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    trailCanvas.width = canvas.width;
+    trailCanvas.height = canvas.height;
+    trailCanvas.style.width = canvas.style.width;
+    trailCanvas.style.height = canvas.style.height;
+    tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    origin.x = w/2;
+    origin.y = Math.min(h * 0.15, 160);
+  }
+  window.addEventListener('resize', resize);
+
+  // Simulation parameters
+  const origin = { x: 0, y: 0 }; // pivot point (updated on resize)
+  const G = 980; // gravity in px/s^2 (scaled)
+  const dt = 1/60; // simulation time step
+  const constraintIterations = 6; // more -> stiffer rods
+  const stampThreshold = 18; // px distance threshold to consider "intercept"
+  const stampSize = 3; // size of intercept mark
+
+  // Pendulum segments
+  const segments = [
+    { length: 180, mass: 1.0 },
+    { length: 150, mass: 1.0 },
+    { length: 120, mass: 1.0 },
+  ];
+
+  // Bobs state: position (x,y), previous position for Verlet, mass
+  const bobs = [];
+
+  // Colors
+  const bobColors = ['#ff7b72', '#ffd86b', '#7fe0c7'];
+
+  // Initialize starting configuration (spreaded angles for interesting motion)
+  function initState() {
+    const a1 = Math.PI*0.7;
+    const a2 = Math.PI*0.9;
+    const a3 = Math.PI*0.55;
+    let x = origin.x;
+    let y = origin.y;
+    // build positions from pivot
+    let angle = a1;
+    x += Math.sin(angle) * segments[0].length;
+    y += Math.cos(angle) * segments[0].length;
+    bobs[0] = createBob(x, y, segments[0].mass);
+
+    angle += a2 - a1;
+    x += Math.sin(angle) * segments[1].length;
+    y += Math.cos(angle) * segments[1].length;
+    bobs[1] = createBob(x, y, segments[1].mass);
+
+    angle += a3 - a2;
+    x += Math.sin(angle) * segments[2].length;
+    y += Math.cos(angle) * segments[2].length;
+    bobs[2] = createBob(x, y, segments[2].mass);
+  }
+
+  function createBob(x, y, m) {
+    return {
+      x: x,
+      y: y,
+      px: x, // previous x
+      py: y, // previous y
+      mass: m,
+      radius: 8 + Math.min(12, 6 * m),
+    };
+  }
+
+  // Small helper: random tiny perturbation to break symmetry
+  function nudgeInitialVelocities() {
+    for (let i=0;i<bobs.length;i++){
+      // create a tiny previous position offset to emulate initial velocity
+      bobs[i].px = bobs[i].x - (Math.random()*40-20) * 0.01;
+      bobs[i].py = bobs[i].y - (Math.random()*40-20) * 0.01;
+    }
+  }
+
+  // Physics: Verlet integration
+  function integrate() {
+    for (let bob of bobs) {
+      // acceleration only gravity downward (x accel = 0)
+      const ax = 0;
+      const ay = G;
+
+      // Verlet step: x_new = x + (x - x_prev) + a * dt^2
+      const nx = bob.x + (bob.x - bob.px) + ax * dt * dt;
+      const ny = bob.y + (bob.y - bob.py) + ay * dt * dt;
+
+      // update previous, then current
+      bob.px = bob.x;
+      bob.py = bob.y;
+      bob.x = nx;
+      bob.y = ny;
+    }
+  }
+
+  // Constraints: keep rod lengths fixed.
+  // Constraint between a and b with target distance L. If 'a' === null -> anchor at origin.
+  function satisfyConstraint(a, b, L) {
+    if (!a) {
+      // anchor to origin: move b to satisfy distance from origin
+      const dx = b.x - origin.x;
+      const dy = b.y - origin.y;
+      const dist = Math.hypot(dx, dy) || 1e-6;
+      const diff = (dist - L) / dist;
+      // pivot is fixed, so move only b
+      b.x -= dx * diff;
+      b.y -= dy * diff;
+      return;
+    }
+    // both movable: move each according to masses
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const dist = Math.hypot(dx, dy) || 1e-6;
+    const diff = (dist - L) / dist;
+    // mass-based distribution
+    const invMassA = 1 / a.mass;
+    const invMassB = 1 / b.mass;
+    const w = invMassA + invMassB;
+    const corrA = (invMassA / w) * 0.99; // damp small to avoid jitter
+    const corrB = (invMassB / w) * 0.99;
+    a.x += dx * diff * corrA;
+    a.y += dy * diff * corrA;
+    b.x -= dx * diff * corrB;
+    b.y -= dy * diff * corrB;
+  }
+
+  // Draw utilities
+  function drawBackground() {
+    // clear main canvas (opaque background)
+    ctx.fillStyle = '#0b0c10';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
+
+  // Fade the trail canvas slightly each frame to create trailing fade effect
+  function fadeTrails() {
+    // draw a translucent rectangle over trail canvas to slowly fade old trails
+    tctx.fillStyle = 'rgba(11,12,16,0.02)';
+    tctx.fillRect(0,0,trailCanvas.width, trailCanvas.height);
+  }
+
+  // Stamp intercept mark on trail canvas (persistent)
+  function stampIntercept(x, y, color) {
+    tctx.beginPath();
+    tctx.fillStyle = color;
+    tctx.arc(x, y, stampSize, 0, Math.PI*2);
+    tctx.fill();
+
+    // add a small radial glow
+    const g = tctx.createRadialGradient(x,y,0,x,y,stampSize*6);
+    g.addColorStop(0, hexToRgba(color, 0.22));
+    g.addColorStop(1, hexToRgba(color, 0.0));
+    tctx.fillStyle = g;
+    tctx.beginPath();
+    tctx.arc(x,y, stampSize*6, 0, Math.PI*2);
+    tctx.fill();
+  }
+
+  // Draw rods, bobs, and soft trails for each bob
+  function drawScene() {
+    // draw the persistent trail canvas underneath (it is separate element)
+    drawBackground();
+
+    // draw rods + bobs
+    // compute anchor -> bob1 -> bob2 -> bob3
+    const p0 = origin;
+    const p1 = bobs[0];
+    const p2 = bobs[1];
+    const p3 = bobs[2];
+
+    // rods
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    // rod 0
+    drawRod(p0.x, p0.y, p1.x, p1.y, '#1c1f28');
+    drawRod(p1.x, p1.y, p2.x, p2.y, '#1c1f28');
+    drawRod(p2.x, p2.y, p3.x, p3.y, '#1c1f28');
+
+    // connecting nodes
+    drawBob(p1, bobColors[0]);
+    drawBob(p2, bobColors[1]);
+    drawBob(p3, bobColors[2]);
+
+    // draw tiny pivot
+    ctx.beginPath();
+    ctx.fillStyle = '#9aa0b3';
+    ctx.arc(p0.x, p0.y, 4, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  function drawRod(x1,y1,x2,y2,color){
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x1,y1);
+    ctx.lineTo(x2,y2);
+    ctx.stroke();
+  }
+
+  function drawBob(b, color) {
+    // soft halo
+    const halo = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.radius*5);
+    halo.addColorStop(0, hexToRgba(color, 0.35));
+    halo.addColorStop(1, hexToRgba(color, 0.0));
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.radius*4, 0, Math.PI*2);
+    ctx.fill();
+
+    // main circle
+    ctx.beginPath();
+    ctx.fillStyle = color;
+    ctx.arc(b.x, b.y, b.radius, 0, Math.PI*2);
+    ctx.fill();
+    // ring
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.stroke();
+  }
+
+  // draw soft trailing strokes for the moving bobs (on main canvas)
+  // We'll draw a short transparent line from previous to current position each frame
+  function drawSoftTrails() {
+    for (let i=0;i<bobs.length;i++){
+      const b = bobs[i];
+      ctx.beginPath();
+      ctx.lineWidth = Math.max(1, b.radius*0.8);
+      ctx.strokeStyle = hexToRgba(bobColors[i], 0.12);
+      ctx.moveTo(b.px, b.py);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+  }
+
+  // Intercept detection: if any pair of bobs are closer than threshold, stamp on trail canvas.
+  // We'll rate-limit stamps so not to flood overlapping stamps; use a small cooldown per pair.
+  const pairCooldown = [[0,0,0],[0,0,0],[0,0,0]]; // timestamp in seconds
+  const stampCooldownSeconds = 0.07;
+
+  function checkIntercepts(now) {
+    for (let i=0;i<bobs.length;i++){
+      for (let j=i+1;j<bobs.length;j++){
+        const a = bobs[i], b = bobs[j];
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        const d = Math.hypot(dx, dy);
+        if (d < stampThreshold) {
+          if (now - pairCooldown[i][j] > stampCooldownSeconds) {
+            pairCooldown[i][j] = now;
+            // stamp at midpoint
+            const mx = (a.x + b.x) / 2;
+            const my = (a.y + b.y) / 2;
+            // color: blend of both colors
+            const c = blendHexColors(bobColors[i], bobColors[j]);
+            stampIntercept(mx, my, c);
+          }
         }
-        
-        // Update physics using Lagrangian mechanics
-        function updatePhysics() {
-            // Simplified equations of motion for triple pendulum
-            const cos12 = Math.cos(angles[0] - angles[1]);
-            const cos13 = Math.cos(angles[0] - angles[2]);
-            const cos23 = Math.cos(angles[1] - angles[2]);
-            
-            const sin12 = Math.sin(angles[0] - angles[1]);
-            const sin13 = Math.sin(angles[0] - angles[2]);
-            const sin23 = Math.sin(angles[1] - angles[2]);
-            
-            // Mass combinations
-            const m1 = bobMasses[0];
-            const m2 = bobMasses[1];
-            const m3 = bobMasses[2];
-            
-            const L1 = rodLengths[0];
-            const L2 = rodLengths[1];
-            const L3 = rodLengths[2];
-            
-            // Angular velocity squared terms
-            const w1Sq = angularVelocities[0] * angularVelocities[0];
-            const w2Sq = angularVelocities[1] * angularVelocities[1];
-            const w3Sq = angularVelocities[2] * angularVelocities[2];
-            
-            // Equations of motion (simplified for performance)
-            angularAccelerations[0] = (-gravity * (2 * m1 + m2 + m3) * Math.sin(angles[0]) -
-                                      m2 * gravity * Math.sin(angles[0] - 2 * angles[1]) -
-                                      m3 * gravity * Math.sin(angles[0] - 2 * angles[2]) +
-                                      2 * sin12 * m2 * (w2Sq * L2 + w1Sq * L1 * cos12) +
-                                      2 * sin13 * m3 * (w3Sq * L3 + w1Sq * L1 * cos13)) /
-                                      (2 * L1 * (m1 + m2 + m3 - m2 * Math.cos(2 * angles[0] - 2 * angles[1]) - 
-                                      m3 * Math.cos(2 * angles[0] - 2 * angles[2])));
-            
-            angularAccelerations[1] = (2 * sin12 * (w1Sq * L1 * (m1 + m2 + m3) -
-                                      gravity * (m1 + m2 + m3) * Math.cos(angles[0]) +
-                                      w2Sq * L2 * m2 * cos12) +
-                                      2 * sin23 * m3 * (w3Sq * L3 + w2Sq * L2 * cos23) -
-                                      m3 * gravity * Math.sin(angles[1] - 2 * angles[2])) /
-                                      (2 * L2 * (m1 + m2 + m3 - m2 * Math.cos(2 * angles[0] - 2 * angles[1]) - 
-                                      m3 * Math.cos(2 * angles[1] - 2 * angles[2])));
-            
-            angularAccelerations[2] = (2 * sin13 * (w1Sq * L1 * (m1 + m2 + m3) -
-                                      gravity * (m1 + m2 + m3) * Math.cos(angles[0]) +
-                                      w3Sq * L3 * m3 * cos13) +
-                                      2 * sin23 * (w2Sq * L2 * (m1 + m2 + m3) -
-                                      gravity * (m1 + m2 + m3) * Math.cos(angles[1]) +
-                                      w3Sq * L3 * m3 * cos23)) /
-                                      (2 * L3 * (m1 + m2 + m3 - m3 * Math.cos(2 * angles[0] - 2 * angles[2]) - 
-                                      m3 * Math.cos(2 * angles[1] - 2 * angles[2])));
-            
-            // Update angular velocities and angles
-            for (let i = 0; i < 3; i++) {
-                angularVelocities[i] += angularAccelerations[i];
-                angularVelocities[i] *= damping; // Apply damping
-                angles[i] += angularVelocities[i];
-            }
-        }
-        
-        // Draw the pendulum and trails
-        function draw() {
-            // Clear canvas with a slight alpha for trail effect
-            ctx.fillStyle = 'rgba(26, 26, 46, 0.1)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            const positions = calculatePositions();
-            
-            // Draw trails
-            for (let i = 0; i < 3; i++) {
-                // Add current position to trail
-                trails[i].push({ x: positions[i].x, y: positions[i].y });
-                
-                // Limit trail length
-                if (trails[i].length > maxTrailLength) {
-                    trails[i].shift();
-                }
-                
-                // Draw trail
-                ctx.beginPath();
-                ctx.moveTo(trails[i][0].x, trails[i][0].y);
-                
-                for (let j = 1; j < trails[i].length; j++) {
-                    ctx.lineTo(trails[i][j].x, trails[i][j].y);
-                }
-                
-                ctx.strokeStyle = trailColors[i];
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            }
-            
-            // Draw rods
-            ctx.beginPath();
-            ctx.moveTo(origin.x, origin.y);
-            ctx.lineTo(positions[0].x, positions[0].y);
-            ctx.lineTo(positions[1].x, positions[1].y);
-            ctx.lineTo(positions[2].x, positions[2].y);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            
-            // Draw bobs
-            for (let i = 0; i < 3; i++) {
-                ctx.beginPath();
-                ctx.arc(positions[i].x, positions[i].y, bobRadii[i], 0, Math.PI * 2);
-                ctx.fillStyle = trailColors[i];
-                ctx.fill();
-                ctx.strokeStyle = 'white';
-                ctx.lineWidth = 1.5;
-                ctx.stroke();
-            }
-            
-            // Draw origin point
-            ctx.beginPath();
-            ctx.arc(origin.x, origin.y, 5, 0, Math.PI * 2);
-            ctx.fillStyle = 'white';
-            ctx.fill();
-        }
-        
-        // Animation loop
-        function animate() {
-            updatePhysics();
-            draw();
-            requestAnimationFrame(animate);
-        }
-        
-        // Start animation
-        animate();
-        
-        // Handle window resize
-        window.addEventListener('resize', function() {
-            canvas.width = Math.min(window.innerWidth * 0.9, 800);
-            canvas.height = Math.min(window.innerHeight * 0.9, 600);
-            origin.x = canvas.width / 2;
-            origin.y = canvas.height / 3;
-        });
-    </script>
+      }
+    }
+  }
+
+  // Helpers: color utils
+  function hexToRgba(hex, alpha){
+    const c = hex.replace('#','');
+    const r = parseInt(c.substring(0,2),16);
+    const g = parseInt(c.substring(2,4),16);
+    const b = parseInt(c.substring(4,6),16);
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+  function blendHexColors(a,b){
+    const ca = a.replace('#','');
+    const cb = b.replace('#','');
+    const ra = parseInt(ca.substring(0,2),16);
+    const ga = parseInt(ca.substring(2,4),16);
+    const ba = parseInt(ca.substring(4,6),16);
+    const rb = parseInt(cb.substring(0,2),16);
+    const gb = parseInt(cb.substring(2,4),16);
+    const bb = parseInt(cb.substring(4,6),16);
+    const r = Math.min(255, Math.round((ra+rb)/2));
+    const g = Math.min(255, Math.round((ga+gb)/2));
+    const b2 = Math.min(255, Math.round((ba+bb)/2));
+    return `rgb(${r},${g},${b2})`;
+  }
+
+  // Main loop
+  let lastTime = performance.now() / 1000;
+  function step(t) {
+    const now = t/1000;
+    const elapsed = now - lastTime;
+    lastTime = now;
+
+    // Fixed-step integration: advance simulation in increments of dt to keep stable
+    // Cap the max substeps to avoid spiral if tab hidden
+    let accumulator = Math.min(0.05, elapsed);
+    // We'll run at least one step to keep simulation moving
+    let steps = Math.max(1, Math.floor(accumulator / dt));
+    steps = Math.min(4, steps);
+    for (let s=0; s<steps; s++){
+      integrate();
+      // satisfy constraints multiple times for rigidity
+      for (let k=0;k<constraintIterations;k++){
+        satisfyConstraint(null, bobs[0], segments[0].length); // pivot -> bob1
+        satisfyConstraint(bobs[0], bobs[1], segments[1].length); // bob1->bob2
+        satisfyConstraint(bobs[1], bobs[2], segments[2].length); // bob2->bob3
+      }
+    }
+
+    // Draw
+    fadeTrails();
+    drawSoftTrails();
+    drawScene();
+
+    // Intercepts detection & stamping on trail canvas
+    checkIntercepts(now);
+
+    requestAnimationFrame(step);
+  }
+
+  // Kick it off
+  function start() {
+    resize();
+    initState();
+    nudgeInitialVelocities();
+
+    // Pre-fill a faint starfield-ish background for trails to look good
+    tctx.fillStyle = 'rgba(11,12,16,1)';
+    tctx.fillRect(0,0,trailCanvas.width, trailCanvas.height);
+
+    // requestAnimationFrame loop
+    lastTime = performance.now() / 1000;
+    requestAnimationFrame(step);
+  }
+
+  // Initialize and run
+  start();
+
+})();
+</script>
 </body>
 </html>
