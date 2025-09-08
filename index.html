@@ -1,134 +1,535 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Triple Pendulum with Speedometer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Glass Weather • Nearby</title>
+
+<!-- Leaflet (Map) -->
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Icons (Feather) -->
+<script src="https://unpkg.com/feather-icons"></script>
+
 <style>
-  html,body{margin:0;height:100%;background:#000;overflow:hidden}
-  canvas{display:block}
-  #speed {
+  :root{
+    --glass-bg: rgba(255,255,255,0.14);
+    --glass-border: rgba(255,255,255,0.25);
+    --card-bg: rgba(255,255,255,0.18);
+    --text: #0b0b0c;
+    --muted: rgba(0,0,0,0.55);
+    --shadow: 0 10px 30px rgba(0,0,0,0.20);
+    --radius: 20px;
+    --blur: 20px;
+  }
+
+  *{box-sizing:border-box}
+  html, body {height:100%; margin:0;}
+  body {
+    font-family: ui-rounded, SF Pro Rounded, SF Pro Display, -apple-system, Segoe UI, Roboto, system-ui, sans-serif;
+    color: var(--text);
+    background: radial-gradient(1200px 800px at 70% -10%, #dfe8ff 0%, #f5f7ff 35%, #f9fbff 60%, #ffffff 100%);
+    overflow: hidden;
+  }
+
+  /* Subtle parallax “light sheen” */
+  .sheen {
+    position: fixed;
+    inset: -10% -10% auto auto;
+    width: 80vmax;
+    height: 80vmax;
+    background: radial-gradient(closest-side, rgba(255,255,255,0.55), rgba(255,255,255,0));
+    filter: blur(40px);
+    opacity: .6;
+    transform: translate3d(0,0,0);
+    pointer-events: none;
+    mix-blend-mode: screen;
+    animation: drift 18s ease-in-out infinite alternate;
+  }
+  @keyframes drift {
+    to { transform: translate3d(-4vw, 3vh, 0); opacity: .7; }
+  }
+
+  /* Map container */
+  #map {
     position: absolute;
-    top: 20px; left: 20px;
-    width: 100px; height: 100px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.05);
-    border: 3px solid #0ff;
-    display: flex; align-items: center; justify-content: center;
-    font-family: monospace; font-size: 16px; color: #0ff;
-    text-shadow: 0 0 6px #0ff;
-    box-shadow: 0 0 20px #0ff;
+    inset: 0;
+    z-index: 1;
+  }
+
+  /* Glass header with animated “clouds above head” */
+  .glass-header {
+    position: fixed;
+    top: 18px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 4;
+    display: grid;
+    gap: 6px;
+    align-items: center;
+    grid-auto-flow: column;
+    padding: 12px 16px;
+    border-radius: 999px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(var(--blur)) saturate(140%);
+    box-shadow: var(--shadow);
+    will-change: transform, opacity;
+  }
+
+  .title {
+    font-weight: 700;
+    letter-spacing: 0.2px;
+  }
+  .subtle {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* Cloudlets animation */
+  .clouds {
+    position: absolute;
+    top: -40px; left: 50%;
+    transform: translateX(-50%);
+    width: 60vw; max-width: 900px; height: 110px;
+    pointer-events: none;
+    filter: blur(8px) saturate(105%);
+  }
+  .cloud {
+    position: absolute;
+    top: 10px;
+    width: 140px; height: 70px;
+    background:
+      radial-gradient(60px 60px at 40px 45px, rgba(255,255,255,0.9), rgba(255,255,255,0)) ,
+      radial-gradient(70px 70px at 90px 30px, rgba(255,255,255,0.85), rgba(255,255,255,0)),
+      radial-gradient(80px 80px at 65px 55px, rgba(255,255,255,0.8), rgba(255,255,255,0));
+    border-radius: 40px;
+    opacity: .75;
+    animation: float var(--t, 16s) ease-in-out infinite alternate;
+    transform: translateX(var(--x, 0)) translateY(var(--y, 0));
+  }
+  @keyframes float {
+    to { transform: translateX(calc(var(--x,0) + 40px)) translateY(calc(var(--y,0) + 8px)); opacity: .9; }
+  }
+
+  /* Info chips */
+  .chips {
+    position: fixed;
+    right: 18px; bottom: 18px;
+    display: grid; gap: 10px;
+    z-index: 4;
+  }
+  .chip {
+    display: grid; grid-auto-flow: column; align-items: center; gap: 8px;
+    padding: 10px 12px;
+    background: var(--card-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    backdrop-filter: blur(var(--blur)) saturate(150%);
+    box-shadow: var(--shadow);
+    animation: pop 420ms cubic-bezier(.2,.9,.2,1) both;
+  }
+  @keyframes pop { from { opacity: 0; transform: translateY(6px) scale(.98);} }
+
+  .chip .val { font-weight: 700; }
+
+  /* Bottom-left hamburger + sheet */
+  .fab {
+    position: fixed; left: 18px; bottom: 18px; z-index: 5;
+    display: grid; place-items: center;
+    width: 56px; height: 56px; border-radius: 16px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(var(--blur)) saturate(160%);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: transform .2s ease, background .2s ease;
+  }
+  .fab:active { transform: scale(.98); }
+
+  .sheet {
+    position: fixed; left: 18px; bottom: 86px; z-index: 5;
+    width: min(88vw, 360px);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    backdrop-filter: blur(var(--blur)) saturate(180%);
+    box-shadow: var(--shadow);
+    padding: 14px;
+    transform-origin: 20px 100%;
+    transform: scale(.98) translateY(8px);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform .25s cubic-bezier(.2,.9,.2,1), opacity .25s ease;
+  }
+  .sheet.open { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
+
+  .sheet h3 {
+    margin: 6px 6px 10px;
+    font-size: 14px; letter-spacing: .3px; opacity: .8;
+  }
+  .group { padding: 10px; border-radius: 14px; background: rgba(255,255,255,0.10); margin-bottom: 10px; }
+  .row {
+    display:flex; align-items:center; justify-content:space-between;
+    gap: 12px; padding: 8px 6px;
+    border-radius: 10px;
+  }
+  .row:hover { background: rgba(255,255,255,0.10); }
+
+  .segmented {
+    display: grid; grid-auto-flow: column; gap: 6px;
+    background: rgba(255,255,255,0.10);
+    padding: 6px; border-radius: 12px;
+  }
+  .segmented button {
+    appearance: none; border: 0; padding: 8px 10px; border-radius: 10px; cursor: pointer;
+    background: transparent; font-weight: 600;
+  }
+  .segmented button.active {
+    background: rgba(255,255,255,0.55);
+  }
+
+  /* Toast for errors */
+  .toast {
+    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+    background: var(--card-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    padding: 10px 14px;
+    backdrop-filter: blur(var(--blur)) saturate(140%);
+    box-shadow: var(--shadow);
+    z-index: 8;
+    display: none;
+  }
+
+  /* Map attribution style tweak for glass */
+  .leaflet-control-attribution {
+    background: rgba(255,255,255,0.65) !important;
+    backdrop-filter: blur(8px);
+    border-radius: 999px;
+    padding: 0 8px !important;
+  }
+
+  @media (max-width: 480px){
+    .chips { right: 12px; bottom: 12px; }
+    .fab { left: 12px; bottom: 12px; }
+    .sheet { left: 12px; bottom: 78px; width: calc(100vw - 24px); }
+    .glass-header { top: 12px; }
   }
 </style>
 </head>
 <body>
-<div id="speed">0.0 m/s</div>
-<canvas id="c"></canvas>
+  <div class="sheen"></div>
+
+  <div id="map" aria-label="Map showing your area"></div>
+
+  <!-- Header + animated cloudlets -->
+  <div class="glass-header" id="header">
+    <div class="title">Nearby Weather</div>
+    <div class="subtle" id="headerSub">Finding your location…</div>
+    <div class="clouds" id="clouds"></div>
+  </div>
+
+  <!-- Info chips -->
+  <div class="chips" id="chips">
+    <!-- chips inserted dynamically -->
+  </div>
+
+  <!-- Hamburger FAB -->
+  <button class="fab" id="hamburger" aria-label="Open view options">
+    <i data-feather="menu"></i>
+  </button>
+
+  <!-- Options sheet -->
+  <div class="sheet" id="sheet" role="dialog" aria-label="Map & data options">
+    <h3>View Options</h3>
+
+    <div class="group">
+      <div class="row" style="justify-content: center;">
+        <div class="segmented" id="basemap">
+          <button data-style="standard" class="active">Standard</button>
+          <button data-style="topo">Topo</button>
+          <button data-style="satellite">Satellite</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="row">
+        <div style="display:flex; align-items:center; gap:8px">
+          <i data-feather="cloud"></i><strong>Clouds above head</strong>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="toggleClouds" checked />
+        </label>
+      </div>
+      <div class="row">
+        <div style="display:flex; align-items:center; gap:8px">
+          <i data-feather="wind"></i><strong>Wind chip</strong>
+        </div>
+        <input type="checkbox" id="toggleWind" checked />
+      </div>
+      <div class="row">
+        <div style="display:flex; align-items:center; gap:8px">
+          <i data-feather="umbrella"></i><strong>Precipitation chip</strong>
+        </div>
+        <input type="checkbox" id="togglePrecip" checked />
+      </div>
+      <div class="row">
+        <div style="display:flex; align-items:center; gap:8px">
+          <i data-feather="droplet"></i><strong>Humidity chip</strong>
+        </div>
+        <input type="checkbox" id="toggleHumidity" checked />
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
 <script>
-(() => {
-  const canvas = document.getElementById("c");
-  const ctx = canvas.getContext("2d");
-  const speedEl = document.getElementById("speed");
-  const dpr = window.devicePixelRatio || 1;
+  feather.replace();
 
-  function resize(){
-    canvas.width=innerWidth*dpr;
-    canvas.height=innerHeight*dpr;
-    canvas.style.width=innerWidth+"px";
-    canvas.style.height=innerHeight+"px";
-    ctx.setTransform(dpr,0,0,dpr,0,0);
+  // Switch styling (minimal) using native checkboxes
+  document.querySelectorAll('input[type="checkbox"]').forEach(cb=>{
+    cb.style.accentColor = '#111';
+    cb.style.transform = 'scale(1.1)';
+  });
+
+  // Build animated cloudlets
+  const cloudsBox = document.getElementById('clouds');
+  function spawnCloudlets() {
+    cloudsBox.innerHTML = '';
+    const count = 6;
+    for (let i=0;i<count;i++){
+      const d = document.createElement('div');
+      d.className = 'cloud';
+      d.style.left = (i*16 + (Math.random()*8)) + '%';
+      d.style.setProperty('--x', (Math.random()*40 - 20) + 'px');
+      d.style.setProperty('--y', (Math.random()*8 - 4) + 'px');
+      d.style.setProperty('--t', (14 + Math.random()*8) + 's');
+      d.style.opacity = 0.65 + Math.random()*0.2;
+      cloudsBox.appendChild(d);
+    }
   }
-  window.addEventListener("resize",resize);
-  resize();
+  spawnCloudlets();
 
-  const origin={x:innerWidth/2,y:150};
-  const g=980, dt=1/60, constraintIters=8;
-  const segs=[{length:180,mass:1},{length:150,mass:1},{length:120,mass:1}];
-  const colors=["#ff4444","#44ff88","#4488ff"];
-  const bobs=[];
-  function makeBob(x,y,m){return {x,y,px:x,py:y,m,r:12}}
-  function init(){
-    let x=origin.x,y=origin.y;
-    [1.2,0.9,1.5].forEach((a,i)=>{
-      x+=Math.sin(a)*segs[i].length;
-      y+=Math.cos(a)*segs[i].length;
-      bobs[i]=makeBob(x,y,segs[i].mass);
+  // Toast helper
+  const toast = document.getElementById('toast');
+  let toastTimer = null;
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.style.display = 'inline-block';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=> toast.style.display='none', 3800);
+  }
+
+  // Map setup
+  let map, userMarker, userCircle;
+  let baseLayers = {};
+  let currentBase = 'standard';
+
+  function initMap(lat=20.5937, lon=78.9629, zoom=5){
+    map = L.map('map', {
+      zoomControl: false,
+      attributionControl: true,
+    }).setView([lat, lon], zoom);
+
+    // Basemaps
+    baseLayers.standard = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
     });
-    for(let b of bobs){b.px=b.x-(Math.random()*100-50);b.py=b.y-(Math.random()*100-50);}
-  }
-  init();
 
-  let shakeAX=0, shakeAY=0;
-  let vx=0,vy=0,vz=0,lastT=Date.now();
-
-  if(window.DeviceMotionEvent){
-    window.addEventListener("devicemotion",e=>{
-      const acc=e.acceleration; // exclude gravity if supported
-      if(acc){
-        let now=Date.now();
-        let dt=(now-lastT)/1000; lastT=now;
-        let ax=acc.x||0, ay=acc.y||0, az=acc.z||0;
-        vx+=ax*dt; vy+=ay*dt; vz+=az*dt;
-        let speed=Math.sqrt(vx*vx+vy*vy+vz*vz);
-        speedEl.textContent=speed.toFixed(1)+" m/s";
-        // also use shake force to influence pendulum
-        shakeAX=ax*50; shakeAY=-ay*50;
-      }
+    baseLayers.topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      maxZoom: 17,
+      attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Style: &copy; OpenTopoMap'
     });
+
+    baseLayers.satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+      attribution: 'Imagery &copy; Esri'
+    });
+
+    baseLayers.standard.addTo(map);
+
+    // Minimal zoom buttons (glass)
+    L.control.zoom({ position: 'topright' }).addTo(map);
   }
 
-  function integrate(){
-    for(let b of bobs){
-      const ax=shakeAX, ay=g+shakeAY;
-      const nx=b.x+(b.x-b.px)+ax*dt*dt;
-      const ny=b.y+(b.y-b.py)+ay*dt*dt;
-      b.px=b.x; b.py=b.y; b.x=nx; b.y=ny;
+  function setBasemap(style){
+    if (!map || !baseLayers[style]) return;
+    if (currentBase && baseLayers[currentBase]) map.removeLayer(baseLayers[currentBase]);
+    baseLayers[style].addTo(map);
+    currentBase = style;
+  }
+
+  // User location handling
+  const headerSub = document.getElementById('headerSub');
+
+  function locateUser(){
+    if (!navigator.geolocation) {
+      headerSub.textContent = 'Geolocation not supported. Drag the map.';
+      initMap();
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(async (pos)=>{
+      const { latitude, longitude, accuracy } = pos.coords;
+      initMap(latitude, longitude, 14);
+
+      // Marker + accuracy circle
+      userMarker = L.marker([latitude, longitude]).addTo(map);
+      userCircle = L.circle([latitude, longitude], {
+        radius: accuracy || 60,
+        color: '#1f2937',
+        weight: 1, fillOpacity: 0.08
+      }).addTo(map);
+
+      headerSub.textContent = `You're here · ±${Math.round(accuracy||50)} m`;
+      fetchWeather(latitude, longitude);
+    }, (err)=>{
+      initMap();
+      headerSub.textContent = 'Permission denied. Drag to explore.';
+      showToast('Location access denied. Using default view.');
+    }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 12000 });
+  }
+
+  // Weather via Open-Meteo
+  const chips = document.getElementById('chips');
+
+  function formatVal(val, unit){
+    if (val === null || val === undefined || Number.isNaN(val)) return '—';
+    return `${Math.round(val)}${unit}`;
+  }
+
+  async function fetchWeather(lat, lon){
+    try{
+      const url = new URL('https://api.open-meteo.com/v1/forecast');
+      url.searchParams.set('latitude', lat);
+      url.searchParams.set('longitude', lon);
+      url.searchParams.set('current', [
+        'temperature_2m',
+        'relative_humidity_2m',
+        'precipitation',
+        'wind_speed_10m',
+        'wind_direction_10m',
+        'cloud_cover'
+      ].join(','));
+      url.searchParams.set('timeformat', 'unixtime');
+
+      const res = await fetch(url.toString());
+      const data = await res.json();
+
+      const c = data.current || {};
+      updateChips({
+        wind: c.wind_speed_10m,
+        precip: c.precipitation,
+        humidity: c.relative_humidity_2m,
+        clouds: c.cloud_cover
+      });
+
+      // Subtle: modulate cloud opacity by cloud cover
+      const density = Math.min(1, Math.max(0, (c.cloud_cover ?? 50)/100));
+      cloudsBox.style.opacity = 0.45 + density*0.4;
+
+    } catch(e){
+      console.error(e);
+      showToast('Could not load weather data right now.');
     }
   }
-  function satisfy(a,b,L){
-    if(!a){
-      let dx=b.x-origin.x,dy=b.y-origin.y;
-      let d=Math.hypot(dx,dy)||1e-6;let diff=(d-L)/d;
-      b.x-=dx*diff; b.y-=dy*diff; return;
-    }
-    let dx=b.x-a.x,dy=b.y-a.y;
-    let d=Math.hypot(dx,dy)||1e-6;let diff=(d-L)/d;
-    let w=1/a.m+1/b.m;
-    a.x+=dx*diff*(1/a.m)/w; a.y+=dy*diff*(1/a.m)/w;
-    b.x-=dx*diff*(1/b.m)/w; b.y-=dy*diff*(1/b.m)/w;
+
+  // Build / update chips
+  const chipStates = { wind:true, precip:true, humidity:true };
+  function chipEl(id, icon, label, value){
+    const e = document.createElement('div');
+    e.className = 'chip';
+    e.dataset.id = id;
+    e.innerHTML = `
+      <i data-feather="${icon}"></i>
+      <span>${label}</span>
+      <span class="val">${value}</span>
+    `;
+    return e;
   }
-  function drawBob(b,color){
-    let halo=ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r*5);
-    halo.addColorStop(0,color);halo.addColorStop(1,"transparent");
-    ctx.fillStyle=halo;ctx.beginPath();ctx.arc(b.x,b.y,b.r*5,0,2*Math.PI);ctx.fill();
-    let g=ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r);
-    g.addColorStop(0,"#fff");g.addColorStop(0.5,color);g.addColorStop(1,color);
-    ctx.shadowBlur=25;ctx.shadowColor=color;
-    ctx.fillStyle=g;ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,2*Math.PI);ctx.fill();
-    ctx.shadowBlur=0;
+
+  function renderChips(values){
+    chips.innerHTML = '';
+    if (chipStates.wind)
+      chips.appendChild(chipEl('wind', 'wind', 'Wind', formatVal(values.wind, ' km/h')));
+    if (chipStates.precip)
+      chips.appendChild(chipEl('precip', 'umbrella', 'Precip', formatVal(values.precip, ' mm')));
+    if (chipStates.humidity)
+      chips.appendChild(chipEl('humidity', 'droplet', 'Humidity', formatVal(values.humidity, '%')));
+    feather.replace(); // re-draw icons
   }
-  function drawRod(ax,ay,bx,by,color){
-    ctx.shadowBlur=12;ctx.shadowColor=color;ctx.strokeStyle=color;ctx.lineWidth=2;
-    ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();ctx.shadowBlur=0;
+
+  let latestValues = { wind:null, precip:null, humidity:null };
+  function updateChips(v){
+    latestValues = { ...latestValues, ...v };
+    renderChips(latestValues);
   }
-  function animate(){
-    for(let s=0;s<2;s++){integrate();
-      for(let i=0;i<constraintIters;i++){
-        satisfy(null,bobs[0],segs[0].length);
-        satisfy(bobs[0],bobs[1],segs[1].length);
-        satisfy(bobs[1],bobs[2],segs[2].length);
-      }
-    }
-    ctx.fillStyle="rgba(0,0,0,0.2)";
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-    drawRod(origin.x,origin.y,bobs[0].x,bobs[0].y,colors[0]);
-    drawRod(bobs[0].x,bobs[0].y,bobs[1].x,bobs[1].y,colors[1]);
-    drawRod(bobs[1].x,bobs[1].y,bobs[2].x,bobs[2].y,colors[2]);
-    bobs.forEach((b,i)=>drawBob(b,colors[i]));
-    requestAnimationFrame(animate);
+
+  // UI wiring
+  const hamburger = document.getElementById('hamburger');
+  const sheet = document.getElementById('sheet');
+  hamburger.addEventListener('click', ()=>{
+    sheet.classList.toggle('open');
+  });
+
+  // Basemap segmented control
+  const basemap = document.getElementById('basemap');
+  basemap.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-style]');
+    if (!btn) return;
+    basemap.querySelectorAll('button').forEach(b=> b.classList.remove('active'));
+    btn.classList.add('active');
+    const style = btn.getAttribute('data-style');
+    setBasemap(style);
+  });
+
+  // Toggle clouds visibility
+  document.getElementById('toggleClouds').addEventListener('change', (e)=>{
+    cloudsBox.style.display = e.target.checked ? 'block' : 'none';
+  });
+  // Toggle chips
+  document.getElementById('toggleWind').addEventListener('change', (e)=>{
+    chipStates.wind = e.target.checked; renderChips(latestValues);
+  });
+  document.getElementById('togglePrecip').addEventListener('change', (e)=>{
+    chipStates.precip = e.target.checked; renderChips(latestValues);
+  });
+  document.getElementById('toggleHumidity').addEventListener('change', (e)=>{
+    chipStates.humidity = e.target.checked; renderChips(latestValues);
+  });
+
+  // Recenter on long-press (nice mobile affordance)
+  let pressTimer=null;
+  document.getElementById('map').addEventListener('touchstart', ()=>{
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(()=>{
+      if (userMarker) map.panTo(userMarker.getLatLng());
+      showToast('Recentered to your location');
+    }, 700);
+  });
+  document.getElementById('map').addEventListener('touchend', ()=> clearTimeout(pressTimer));
+
+  // Init
+  locateUser();
+
+  // If user drags the map, fetch weather for center on release (optional, feels dynamic)
+  let dragTimeout;
+  function refreshCenterWeather(){
+    clearTimeout(dragTimeout);
+    dragTimeout = setTimeout(()=>{
+      const c = map.getCenter();
+      fetchWeather(c.lat, c.lng);
+    }, 600);
   }
-  animate();
-})();
+  document.addEventListener('DOMContentLoaded', ()=>{
+    if (map) map.on('moveend', refreshCenterWeather);
+  });
 </script>
 </body>
 </html>
