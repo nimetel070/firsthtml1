@@ -3,310 +3,374 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Glass Music Player</title>
+    <title>Weather App</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://unpkg.com/feather-icons"></script>
     <style>
-        * {
+        body {
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: radial-gradient(circle at center, #dfe8ff, #f5f7ff, #f9fbff, #ffffff);
             overflow: hidden;
+            text-rendering: optimizeLegibility;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
-
-        .player {
-            width: 350px;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #fff;
-            text-align: center;
-            animation: fadeIn 1s ease-in-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .album-art {
-            width: 200px;
-            height: 200px;
-            border-radius: 15px;
-            margin: 0 auto 20px;
-            object-fit: cover;
-            transition: transform 0.3s ease;
-        }
-
-        .album-art:hover {
-            transform: scale(1.05);
-        }
-
-        .track-info {
-            margin-bottom: 20px;
-        }
-
-        .track-title {
-            font-size: 1.5em;
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-
-        .track-artist {
-            font-size: 1em;
-            opacity: 0.7;
-        }
-
-        .progress-container {
+        #map {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            height: 5px;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 5px;
-            margin: 20px 0;
-            cursor: pointer;
-            position: relative;
-            transition: all 0.3s ease;
-        }
-
-        .progress {
-            width: 0%;
             height: 100%;
-            background: linear-gradient(90deg, #ff5e62, #f7f7f7);
-            border-radius: 5px;
-            transition: width 0.1s linear;
+            z-index: 0;
         }
-
-        .time {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.8em;
-            opacity: 0.8;
-            margin-top: 5px;
-        }
-
-        .controls {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin-top: 20px;
-        }
-
-        .control-btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            color: #fff;
-            font-size: 1.5em;
-            cursor: pointer;
+        .glass {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(20px) saturate(160%);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
+        }
+        .pill {
+            border-radius: 999px;
+        }
+        .rounded {
+            border-radius: 20px;
+        }
+        .header {
+            position: fixed;
+            top: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 0.5rem 1rem;
+            z-index: 10;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 1.25rem;
+            font-weight: bold;
+            margin: 0;
+        }
+        .header p {
+            font-size: 0.875rem;
+            color: rgba(0, 0, 0, 0.6);
+            margin: 0;
+        }
+        .chips {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            z-index: 10;
+        }
+        .chip {
+            padding: 0.5rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+        .fab {
+            position: fixed;
+            bottom: 1rem;
+            left: 1rem;
+            width: 3rem;
+            height: 3rem;
+            border-radius: 999px;
             display: flex;
             align-items: center;
             justify-content: center;
+            cursor: pointer;
+            z-index: 10;
         }
-
-        .control-btn:hover {
-            background: rgba(255, 255, 255, 0.4);
-            transform: scale(1.1);
+        .sheet {
+            position: fixed;
+            bottom: 5rem;
+            left: 1rem;
+            padding: 1rem;
+            width: 20rem;
+            max-width: 90%;
+            opacity: 0;
+            transform: translateY(1rem);
+            pointer-events: none;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            z-index: 10;
         }
-
-        .control-btn:active {
-            transform: scale(0.95);
+        .sheet.open {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
         }
-
-        .playlist {
-            margin-top: 20px;
-            max-height: 150px;
-            overflow-y: auto;
-            scrollbar-width: thin;
-            scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
-        }
-
-        .playlist-item {
-            padding: 10px;
+        .segmented {
+            display: flex;
             background: rgba(255, 255, 255, 0.1);
-            margin: 5px 0;
-            border-radius: 10px;
+            border-radius: 999px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+        .segmented button {
+            flex: 1;
+            padding: 0.5rem;
+            border: none;
+            background: transparent;
             cursor: pointer;
             transition: background 0.3s ease;
         }
-
-        .playlist-item:hover {
+        .segmented button.selected {
             background: rgba(255, 255, 255, 0.3);
         }
-
-        .playlist-item.active {
-            background: rgba(255, 255, 255, 0.5);
+        .checkboxes label {
+            display: block;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .toast {
+            position: fixed;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 0.5rem 1rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 10;
+        }
+        .toast.show {
+            opacity: 1;
+        }
+        #particle-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
         }
     </style>
 </head>
 <body>
-    <div class="player">
-        <img src="https://via.placeholder.com/200" alt="Album Art" class="album-art">
-        <div class="track-info">
-            <div class="track-title">Track Title</div>
-            <div class="track-artist">Artist Name</div>
+    <div id="map"></div>
+    <canvas id="particle-canvas"></canvas>
+    <div class="header glass pill">
+        <h1>Weather</h1>
+        <p id="location-status">Loading location...</p>
+    </div>
+    <div class="chips">
+        <div id="wind-chip" class="chip glass pill" style="display: none;">
+            <i data-feather="wind"></i>
+            <span id="wind-value">Wind: -- km/h --°</span>
         </div>
-        <div class="progress-container" id="progress-container">
-            <div class="progress" id="progress"></div>
+        <div id="precip-chip" class="chip glass pill" style="display: none;">
+            <i data-feather="cloud-rain"></i>
+            <span id="precip-value">Precip: -- mm</span>
         </div>
-        <div class="time">
-            <span id="current-time">0:00</span>
-            <span id="duration">0:00</span>
-        </div>
-        <div class="controls">
-            <button class="control-btn" id="prev-btn">&#9664;</button>
-            <button class="control-btn" id="play-pause-btn">&#9654;</button>
-            <button class="control-btn" id="next-btn">&#9658;</button>
-        </div>
-        <div class="playlist" id="playlist">
-            <!-- Playlist items will be populated by JavaScript -->
+        <div id="humidity-chip" class="chip glass pill" style="display: none;">
+            <i data-feather="droplet"></i>
+            <span id="humidity-value">Humidity: -- %</span>
         </div>
     </div>
-
-    <audio id="audio-player"></audio>
+    <div class="fab glass" onclick="toggleSheet()">
+        <i data-feather="menu"></i>
+    </div>
+    <div class="sheet glass rounded">
+        <div class="segmented">
+            <button onclick="changeMapLayer('standard')" class="selected">Standard</button>
+            <button onclick="changeMapLayer('topo')">Topo</button>
+            <button onclick="changeMapLayer('satellite')">Satellite</button>
+        </div>
+        <div class="checkboxes">
+            <label><input type="checkbox" id="wind-toggle" onchange="updateLayers()"> Wind</label>
+            <label><input type="checkbox" id="precip-toggle" onchange="updateLayers()"> Precipitation</label>
+            <label><input type="checkbox" id="humidity-toggle" onchange="updateLayers()"> Humidity</label>
+        </div>
+    </div>
+    <div id="toast" class="toast glass pill"></div>
 
     <script>
-        const audioPlayer = document.getElementById('audio-player');
-        const playPauseBtn = document.getElementById('play-pause-btn');
-        const prevBtn = document.getElementById('prev-btn');
-        const nextBtn = document.getElementById('next-btn');
-        const progressContainer = document.getElementById('progress-container');
-        const progress = document.getElementById('progress');
-        const currentTimeEl = document.getElementById('current-time');
-        const durationEl = document.getElementById('duration');
-        const trackTitle = document.querySelector('.track-title');
-        const trackArtist = document.querySelector('.track-artist');
-        const albumArt = document.querySelector('.album-art');
-        const playlistEl = document.getElementById('playlist');
+        feather.replace();
+        let map = L.map('map', { zoomControl: false }).setView([20.5937, 78.9629], 5);
+        let standardLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' });
+        let topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenTopoMap' });
+        let satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '&copy; Esri' });
+        let currentLayer = standardLayer;
+        currentLayer.addTo(map);
 
-        // Sample playlist (replace with actual audio file URLs)
-        const playlist = [
-            {
-                title: 'Song 1',
-                artist: 'Artist 1',
-                src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-                albumArt: 'https://via.placeholder.com/200?text=Song+1'
-            },
-            {
-                title: 'Song 2',
-                artist: 'Artist 2',
-                src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
-                albumArt: 'https://via.placeholder.com/200?text=Song+2'
-            },
-            {
-                title: 'Song 3',
-                artist: 'Artist 3',
-                src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
-                albumArt: 'https://via.placeholder.com/200?text=Song+3'
-            }
-        ];
+        let lat = 20.5937;
+        let lon = 78.9629;
+        let usingDefault = true;
+        let windSpeed = 0;
+        let windDir = 0;
+        let precip = 0;
+        let humidity = 0;
+        let particles = [];
+        let rainParticles = [];
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let animationFrame;
 
-        let currentTrackIndex = 0;
-        let isPlaying = false;
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
 
-        // Populate playlist
-        function loadPlaylist() {
-            playlistEl.innerHTML = '';
-            playlist.forEach((track, index) => {
-                const item = document.createElement('div');
-                item.classList.add('playlist-item');
-                item.textContent = `${track.title} - ${track.artist}`;
-                item.addEventListener('click', () => loadTrack(index));
-                playlistEl.appendChild(item);
-            });
-            updatePlaylistUI();
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
         }
 
-        // Load track
-        function loadTrack(index) {
-            currentTrackIndex = index;
-            const track = playlist[index];
-            audioPlayer.src = track.src;
-            trackTitle.textContent = track.title;
-            trackArtist.textContent = track.artist;
-            albumArt.src = track.albumArt;
-            audioPlayer.load();
-            updatePlaylistUI();
-            if (isPlaying) audioPlayer.play();
+        function toggleSheet() {
+            document.querySelector('.sheet').classList.toggle('open');
         }
 
-        // Update playlist UI
-        function updatePlaylistUI() {
-            const items = playlistEl.querySelectorAll('.playlist-item');
-            items.forEach((item, index) => {
-                item.classList.toggle('active', index === currentTrackIndex);
-            });
+        function changeMapLayer(layer) {
+            map.removeLayer(currentLayer);
+            if (layer === 'standard') currentLayer = standardLayer;
+            else if (layer === 'topo') currentLayer = topoLayer;
+            else if (layer === 'satellite') currentLayer = satelliteLayer;
+            currentLayer.addTo(map);
+            const buttons = document.querySelectorAll('.segmented button');
+            buttons.forEach(btn => btn.classList.remove('selected'));
+            event.target.classList.add('selected');
         }
 
-        // Play or pause
-        function togglePlayPause() {
-            if (isPlaying) {
-                audioPlayer.pause();
-                playPauseBtn.textContent = '▶';
+        function updateLayers() {
+            const windToggle = document.getElementById('wind-toggle').checked;
+            const precipToggle = document.getElementById('precip-toggle').checked;
+            const humidityToggle = document.getElementById('humidity-toggle').checked;
+
+            document.getElementById('wind-chip').style.display = windToggle ? 'flex' : 'none';
+            document.getElementById('precip-chip').style.display = precipToggle ? 'flex' : 'none';
+            document.getElementById('humidity-chip').style.display = humidityToggle ? 'flex' : 'none';
+
+            if (windToggle || (precipToggle && precip > 0)) {
+                if (!animationFrame) animateParticles();
             } else {
-                audioPlayer.play();
-                playPauseBtn.textContent = '❚❚';
-            }
-            isPlaying = !isPlaying;
-        }
-
-        // Update progress bar
-        function updateProgress() {
-            const { currentTime, duration } = audioPlayer;
-            if (duration) {
-                const progressPercent = (currentTime / duration) * 100;
-                progress.style.width = `${progressPercent}%`;
-                currentTimeEl.textContent = formatTime(currentTime);
-                durationEl.textContent = formatTime(duration);
+                cancelAnimationFrame(animationFrame);
+                animationFrame = null;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
             }
         }
 
-        // Format time
-        function formatTime(seconds) {
-            const min = Math.floor(seconds / 60);
-            const sec = Math.floor(seconds % 60);
-            return `${min}:${sec < 10 ? '0' : ''}${sec}`;
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < 100; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    length: Math.random() * 5 + 5,
+                    speed: windSpeed / 10 + 1,
+                    dir: windDir * Math.PI / 180
+                });
+            }
         }
 
-        // Seek
-        function seek(e) {
-            const rect = progressContainer.getBoundingClientRect();
-            const pos = (e.clientX - rect.left) / rect.width;
-            audioPlayer.currentTime = pos * audioPlayer.duration;
+        function initRainParticles() {
+            rainParticles = [];
+            for (let i = 0; i < 200; i++) {
+                rainParticles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    length: Math.random() * 10 + 5,
+                    speed: Math.random() * 5 + 5
+                });
+            }
         }
 
-        // Event listeners
-        playPauseBtn.addEventListener('click', togglePlayPause);
-        prevBtn.addEventListener('click', () => {
-            currentTrackIndex = (currentTrackIndex - 1 + playlist.length) % playlist.length;
-            loadTrack(currentTrackIndex);
-        });
-        nextBtn.addEventListener('click', () => {
-            currentTrackIndex = (currentTrackIndex + 1) % playlist.length;
-            loadTrack(currentTrackIndex);
-        });
-        audioPlayer.addEventListener('timeupdate', updateProgress);
-        audioPlayer.addEventListener('ended', () => {
-            currentTrackIndex = (currentTrackIndex + 1) % playlist.length;
-            loadTrack(currentTrackIndex);
-        });
-        progressContainer.addEventListener('click', seek);
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Initialize
-        loadPlaylist();
-        loadTrack(currentTrackIndex);
+            const windToggle = document.getElementById('wind-toggle').checked;
+            const precipToggle = document.getElementById('precip-toggle').checked;
+
+            if (windToggle) {
+                particles.forEach(p => {
+                    ctx.beginPath();
+                    ctx.moveTo(p.x, p.y);
+                    ctx.lineTo(p.x - p.length * Math.sin(p.dir), p.y + p.length * Math.cos(p.dir));
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+
+                    p.x += p.speed * Math.sin(p.dir);
+                    p.y -= p.speed * Math.cos(p.dir);
+
+                    if (p.x > canvas.width) p.x = 0;
+                    if (p.x < 0) p.x = canvas.width;
+                    if (p.y > canvas.height) p.y = 0;
+                    if (p.y < 0) p.y = canvas.height;
+                });
+            }
+
+            if (precipToggle && precip > 0) {
+                rainParticles.forEach(r => {
+                    ctx.beginPath();
+                    ctx.moveTo(r.x, r.y);
+                    ctx.lineTo(r.x, r.y + r.length);
+                    ctx.strokeStyle = 'rgba(0, 0, 255, 0.3)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+
+                    r.y += r.speed;
+                    if (r.y > canvas.height) {
+                        r.y = -r.length;
+                        r.x = Math.random() * canvas.width;
+                    }
+                });
+            }
+
+            animationFrame = requestAnimationFrame(animateParticles);
+        }
+
+        function updateWeather() {
+            document.getElementById('wind-value').textContent = `Wind: ${windSpeed} km/h ${windDir}°`;
+            document.getElementById('precip-value').textContent = `Precip: ${precip} mm`;
+            document.getElementById('humidity-value').textContent = `Humidity: ${humidity} %`;
+            initParticles();
+            initRainParticles();
+            updateLayers();
+        }
+
+        function fetchWeather() {
+            fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m`)
+                .then(res => res.json())
+                .then(data => {
+                    const current = data.current;
+                    windSpeed = current.wind_speed_10m;
+                    windDir = current.wind_direction_10m;
+                    precip = current.precipitation;
+                    humidity = current.relative_humidity_2m;
+                    updateWeather();
+                })
+                .catch(err => {
+                    showToast('Failed to fetch weather data');
+                });
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            pos => {
+                lat = pos.coords.latitude;
+                lon = pos.coords.longitude;
+                usingDefault = false;
+                map.setView([lat, lon], 10);
+                document.getElementById('location-status').textContent = 'Using current location';
+                fetchWeather();
+            },
+            err => {
+                showToast('Geolocation unavailable');
+                document.getElementById('location-status').textContent = 'Using default: India';
+                fetchWeather();
+            }
+        );
     </script>
 </body>
 </html>
