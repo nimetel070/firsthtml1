@@ -6,7 +6,10 @@
 <title>Glass Weather • Nearby</title>
 
 <!-- Leaflet (Map) -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <!-- Icons (Feather) -->
@@ -24,47 +27,106 @@
     --blur: 20px;
   }
 
-  *{box-sizing:border-box}
+  *{box-sizing:border-box;}
   html, body {height:100%; margin:0;}
+
+  /* Improved Apple-style Typography */
   body {
-    font-family: ui-rounded, SF Pro Rounded, SF Pro Display, -apple-system, Segoe UI, Roboto, system-ui, sans-serif;
+    font-family: -apple-system, "SF Pro Rounded", "SF Pro Display", "Segoe UI", Roboto, system-ui, sans-serif;
+    font-weight: 400;
+    font-size: 16px;
     color: var(--text);
     background: radial-gradient(1200px 800px at 70% -10%, #dfe8ff 0%, #f5f7ff 35%, #f9fbff 60%, #ffffff 100%);
     overflow: hidden;
+    line-height: 1.5;
   }
 
-  #map { position: absolute; inset: 0; z-index: 1; }
-  #windCanvas, #precipCanvas, #fogCanvas {
+  h3 {
+    font-family: "SF Pro Rounded", -apple-system, system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin: 0 0 10px 0;
+  }
+
+  .title {
+    font-family: "SF Pro Rounded", -apple-system, system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 1.3rem;
+  }
+
+  .subtle {
+    font-family: "SF Pro Rounded", -apple-system, system-ui, sans-serif;
+    font-weight: 400;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .chip {
+    font-family: "SF Pro Rounded", -apple-system, system-ui, sans-serif;
+    font-weight: 500;
+    font-size: 0.9rem;
+  }
+
+  /* Glass & UI elements */
+  .sheen {
+    position: fixed;
+    inset: -10% -10% auto auto;
+    width: 80vmax;
+    height: 80vmax;
+    background: radial-gradient(closest-side, rgba(255,255,255,0.55), rgba(255,255,255,0));
+    filter: blur(40px);
+    opacity: .6;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    animation: drift 18s ease-in-out infinite alternate;
+  }
+  @keyframes drift { to { transform: translate3d(-4vw, 3vh, 0); opacity: .7; } }
+
+  #map {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+
+  #windCanvas {
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
     z-index: 2;
     pointer-events: none;
   }
 
-  .glass-header, .chip, .sheet, .fab {
-    background: linear-gradient(145deg, rgba(255,255,255,0.22), rgba(255,255,255,0.08));
+  .glass-header {
+    position: fixed;
+    top: 18px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 4;
+    display: grid;
+    gap: 6px;
+    grid-auto-flow: column;
+    align-items: center;
+    padding: 12px 16px;
+    border-radius: 999px;
+    background: var(--glass-bg);
     border: 1px solid var(--glass-border);
-    backdrop-filter: blur(var(--blur)) saturate(150%);
+    backdrop-filter: blur(var(--blur)) saturate(140%);
     box-shadow: var(--shadow);
   }
 
-  .glass-header {
-    position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
-    z-index: 4; display: grid; gap: 6px;
-    grid-auto-flow: column; align-items: center;
-    padding: 12px 16px; border-radius: 999px;
-  }
-
-  .title { font-weight: 700; }
-  .subtle { font-size: 12px; color: var(--muted); }
-
   .chips {
-    position: fixed; right: 18px; bottom: 18px;
-    display: grid; gap: 10px; z-index: 4;
+    position: fixed;
+    right: 18px; bottom: 18px;
+    display: grid; gap: 10px;
+    z-index: 4;
   }
+
   .chip {
     display: grid; grid-auto-flow: column; align-items: center; gap: 8px;
-    padding: 10px 12px; border-radius: 999px;
+    padding: 10px 12px;
+    background: var(--card-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    backdrop-filter: blur(var(--blur)) saturate(150%);
+    box-shadow: var(--shadow);
   }
   .chip .val { font-weight: 700; }
 
@@ -72,21 +134,25 @@
     position: fixed; left: 18px; bottom: 18px; z-index: 5;
     display: grid; place-items: center;
     width: 56px; height: 56px; border-radius: 16px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(var(--blur)) saturate(160%);
+    box-shadow: var(--shadow);
     cursor: pointer;
-  }
-
-  .fab:active, .chip:active {
-    transform: scale(0.95);
-    transition: transform 0.15s ease;
   }
 
   .sheet {
     position: fixed; left: 18px; bottom: 86px; z-index: 5;
-    width: min(88vw, 360px); border-radius: var(--radius);
+    width: min(88vw, 360px);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    backdrop-filter: blur(var(--blur)) saturate(180%);
+    box-shadow: var(--shadow);
     padding: 14px;
     transform: scale(.98) translateY(8px);
     opacity: 0; pointer-events: none;
-    transition: transform 0.5s cubic-bezier(0.22,1,0.36,1), opacity 0.4s;
+    transition: .25s;
   }
   .sheet.open { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
 
@@ -99,22 +165,29 @@
     appearance: none; border: 0; padding: 8px 10px;
     border-radius: 10px; cursor: pointer;
     background: transparent; font-weight: 600;
+    font-family: "SF Pro Rounded", -apple-system, system-ui, sans-serif;
   }
   .segmented button.active { background: rgba(255,255,255,0.55); }
 
   .toast {
     position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
-    border-radius: 999px; padding: 10px 14px; z-index: 8; display: none;
+    background: var(--card-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    padding: 10px 14px;
+    backdrop-filter: blur(var(--blur)) saturate(140%);
+    box-shadow: var(--shadow);
+    z-index: 8;
+    display: none;
+    font-family: "SF Pro Rounded", -apple-system, system-ui, sans-serif;
   }
 </style>
 </head>
 <body>
+  <div class="sheen"></div>
   <div id="map"></div>
   <canvas id="windCanvas"></canvas>
-  <canvas id="precipCanvas"></canvas>
-  <canvas id="fogCanvas"></canvas>
 
-  <!-- Header -->
   <div class="glass-header" id="header">
     <div class="title">Nearby Weather</div>
     <div class="subtle" id="headerSub">Finding your location…</div>
@@ -122,10 +195,8 @@
 
   <div class="chips" id="chips"></div>
 
-  <!-- Hamburger -->
   <button class="fab" id="hamburger"><i data-feather="menu"></i></button>
 
-  <!-- Sheet -->
   <div class="sheet" id="sheet">
     <h3>View Options</h3>
     <div class="segmented" id="basemap">
@@ -143,155 +214,100 @@
   <div class="toast" id="toast"></div>
 
 <script>
-feather.replace();
-
-// Map setup
-let map, baseLayers={}, currentBase='standard';
-function initMap(lat=20.59, lon=78.96, zoom=5){
-  map=L.map('map').setView([lat,lon],zoom);
-  baseLayers.standard=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-  baseLayers.topo=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png');
-  baseLayers.satellite=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
-}
-function setBasemap(style){
-  if(currentBase&&baseLayers[currentBase]) map.removeLayer(baseLayers[currentBase]);
-  baseLayers[style].addTo(map); currentBase=style;
-}
-
-// Location
-const headerSub=document.getElementById('headerSub');
-function locateUser(){
-  if(!navigator.geolocation){ initMap(); return; }
-  navigator.geolocation.getCurrentPosition(pos=>{
-    initMap(pos.coords.latitude,pos.coords.longitude,14);
-    fetchWeather(pos.coords.latitude,pos.coords.longitude);
-  },()=>initMap());
-}
-
-// Weather
-const chips=document.getElementById('chips');
-let latestValues={wind:null,wind_direction:null,precip:null,humidity:null};
-function chipEl(icon,label,val){
-  const e=document.createElement('div');
-  e.className='chip'; e.innerHTML=`<i data-feather="${icon}"></i> ${label}: <span class="val">${val}</span>`;
-  return e;
-}
-function renderChips(){
-  chips.innerHTML='';
-  if(chipStates.wind) chips.appendChild(chipEl('wind','Wind',latestValues.wind?Math.round(latestValues.wind)+' km/h':'—'));
-  if(chipStates.precip) chips.appendChild(chipEl('umbrella','Precip',latestValues.precip?latestValues.precip+' mm':'—'));
-  if(chipStates.humidity) chips.appendChild(chipEl('droplet','Humidity',latestValues.humidity?latestValues.humidity+'%':'—'));
   feather.replace();
-}
-async function fetchWeather(lat,lon){
-  const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=wind_speed_10m,wind_direction_10m,precipitation,relative_humidity_2m`;
-  const r=await fetch(url); const d=await r.json();
-  latestValues.wind=d.current.wind_speed_10m;
-  latestValues.wind_direction=d.current.wind_direction_10m;
-  latestValues.precip=d.current.precipitation;
-  latestValues.humidity=d.current.relative_humidity_2m;
-  renderChips();
-  if(chipStates.wind) startWindParticles(latestValues.wind,latestValues.wind_direction);
-  if(chipStates.precip) startPrecipitation();
-  if(chipStates.humidity) startFog();
-}
 
-// Wind particles
-const windCanvas=document.getElementById('windCanvas');
-const wctx=windCanvas.getContext('2d');
-let particles=[],windId=null,windActive=false,windVector={x:0,y:0};
-function resizeCanvas(){ 
-  windCanvas.width=map.getSize().x; windCanvas.height=map.getSize().y;
-  precipCanvas.width=map.getSize().x; precipCanvas.height=map.getSize().y;
-  fogCanvas.width=map.getSize().x; fogCanvas.height=map.getSize().y;
-}
-function createParticles(n=250){particles=[];for(let i=0;i<n;i++){particles.push({x:Math.random()*windCanvas.width,y:Math.random()*windCanvas.height,age:Math.random()*100});}}
-function animateWind(){
-  if(!windActive)return;
-  wctx.clearRect(0,0,windCanvas.width,windCanvas.height);
-  for(let p of particles){
-    p.x+=windVector.x*0.4; p.y+=windVector.y*0.4; p.age++;
-    const alpha=0.3+0.3*Math.sin(p.age*0.1);
-    wctx.beginPath();
-    wctx.fillStyle=`rgba(255,255,255,${alpha})`;
-    wctx.arc(p.x,p.y,1.5,0,Math.PI*2); wctx.fill();
-    if(p.x<0||p.y<0||p.x>windCanvas.width||p.y>windCanvas.height||p.age>200){
-      p.x=Math.random()*windCanvas.width; p.y=Math.random()*windCanvas.height; p.age=0;
+  let map, baseLayers={}, currentBase='standard';
+  function initMap(lat=20.59, lon=78.96, zoom=5){
+    map=L.map('map').setView([lat,lon],zoom);
+    baseLayers.standard=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    baseLayers.topo=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png');
+    baseLayers.satellite=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
+  }
+  function setBasemap(style){
+    if(currentBase&&baseLayers[currentBase]) map.removeLayer(baseLayers[currentBase]);
+    baseLayers[style].addTo(map); currentBase=style;
+  }
+
+  const headerSub=document.getElementById('headerSub');
+  function locateUser(){
+    if(!navigator.geolocation){ initMap(); return; }
+    navigator.geolocation.getCurrentPosition(pos=>{
+      initMap(pos.coords.latitude,pos.coords.longitude,14);
+      fetchWeather(pos.coords.latitude,pos.coords.longitude);
+    },()=>initMap());
+  }
+
+  const chips=document.getElementById('chips');
+  let latestValues={wind:null,wind_direction:null,precip:null,humidity:null};
+  const chipStates={wind:true,precip:true,humidity:true};
+
+  function chipEl(icon,label,val){
+    const e=document.createElement('div');
+    e.className='chip'; e.innerHTML=`<i data-feather="${icon}"></i> ${label}: <span class="val">${val}</span>`;
+    return e;
+  }
+  function renderChips(){
+    chips.innerHTML='';
+    if(chipStates.wind) chips.appendChild(chipEl('wind','Wind',latestValues.wind?Math.round(latestValues.wind)+' km/h':'—'));
+    if(chipStates.precip) chips.appendChild(chipEl('umbrella','Precip',latestValues.precip?latestValues.precip+' mm':'—'));
+    if(chipStates.humidity) chips.appendChild(chipEl('droplet','Humidity',latestValues.humidity?latestValues.humidity+'%':'—'));
+    feather.replace();
+  }
+  async function fetchWeather(lat,lon){
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=wind_speed_10m,wind_direction_10m,precipitation,relative_humidity_2m`;
+    const r=await fetch(url); const d=await r.json();
+    latestValues.wind=d.current.wind_speed_10m;
+    latestValues.wind_direction=d.current.wind_direction_10m;
+    latestValues.precip=d.current.precipitation;
+    latestValues.humidity=d.current.relative_humidity_2m;
+    renderChips();
+    if(chipStates.wind) startWindParticles(latestValues.wind,latestValues.wind_direction);
+  }
+
+  const windCanvas=document.getElementById('windCanvas');
+  const ctx=windCanvas.getContext('2d');
+  let particles=[],animId=null,windActive=false,windVector={x:0,y:0};
+  function resizeCanvas(){ windCanvas.width=map.getSize().x; windCanvas.height=map.getSize().y; }
+  function createParticles(n=250){particles=[];for(let i=0;i<n;i++){particles.push({x:Math.random()*windCanvas.width,y:Math.random()*windCanvas.height,age:Math.random()*100});}}
+  function animateParticles(){
+    if(!windActive)return;
+    ctx.clearRect(0,0,windCanvas.width,windCanvas.height);
+    ctx.strokeStyle="rgba(0,0,0,0.4)";
+    for(let p of particles){
+      const ox=p.x,oy=p.y;
+      p.x+=windVector.x*0.4; p.y+=windVector.y*0.4; p.age++;
+      ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(p.x,p.y); ctx.stroke();
+      if(p.x<0||p.y<0||p.x>windCanvas.width||p.y>windCanvas.height||p.age>100){
+        p.x=Math.random()*windCanvas.width; p.y=Math.random()*windCanvas.height; p.age=0;
+      }
     }
+    animId=requestAnimationFrame(animateParticles);
   }
-  windId=requestAnimationFrame(animateWind);
-}
-function startWindParticles(speed,dir){
-  const rad=(dir-90)*Math.PI/180;
-  windVector={x:Math.cos(rad)*speed*0.5,y:Math.sin(rad)*speed*0.5};
-  resizeCanvas(); createParticles();
-  windActive=true; cancelAnimationFrame(windId); animateWind();
-}
-function stopWindParticles(){windActive=false;cancelAnimationFrame(windId);wctx.clearRect(0,0,windCanvas.width,windCanvas.height);}
-
-// Precipitation
-const precipCanvas=document.getElementById('precipCanvas');
-const prctx=precipCanvas.getContext('2d');
-let rainDrops=[],rainId=null,rainActive=false;
-function createRain(n=150){rainDrops=[];for(let i=0;i<n;i++){rainDrops.push({x:Math.random()*precipCanvas.width,y:Math.random()*precipCanvas.height,len:10+Math.random()*10,speed:2+Math.random()*3});}} 
-function animateRain(){
-  if(!rainActive)return;
-  prctx.clearRect(0,0,precipCanvas.width,precipCanvas.height);
-  prctx.strokeStyle="rgba(255,255,255,0.4)"; prctx.lineWidth=1;
-  for(let r of rainDrops){
-    r.y+=r.speed;
-    prctx.beginPath(); prctx.moveTo(r.x,r.y); prctx.lineTo(r.x,r.y-r.len); prctx.stroke();
-    if(r.y>precipCanvas.height){r.y=-20;r.x=Math.random()*precipCanvas.width;}
+  function startWindParticles(speed,dir){
+    const rad=(dir-90)*Math.PI/180;
+    windVector={x:Math.cos(rad)*speed*0.5,y:Math.sin(rad)*speed*0.5};
+    resizeCanvas(); createParticles();
+    windActive=true; cancelAnimationFrame(animId); animateParticles();
   }
-  rainId=requestAnimationFrame(animateRain);
-}
-function startPrecipitation(){resizeCanvas();createRain();rainActive=true;cancelAnimationFrame(rainId);animateRain();}
-function stopPrecipitation(){rainActive=false;cancelAnimationFrame(rainId);prctx.clearRect(0,0,precipCanvas.width,precipCanvas.height);}
+  function stopWindParticles(){windActive=false;cancelAnimationFrame(animId);ctx.clearRect(0,0,windCanvas.width,windCanvas.height);}
+  window.addEventListener('resize',()=>{resizeCanvas();createParticles();});
 
-// Fog (Humidity)
-const fogCanvas=document.getElementById('fogCanvas');
-const fctx=fogCanvas.getContext('2d');
-let fogId=null,fogActive=false,fogOffset=0;
-function animateFog(){
-  if(!fogActive)return;
-  fctx.clearRect(0,0,fogCanvas.width,fogCanvas.height);
-  const gradient=fctx.createLinearGradient(fogOffset,0,fogOffset+200,fogCanvas.height);
-  gradient.addColorStop(0,"rgba(255,255,255,0.05)");
-  gradient.addColorStop(1,"rgba(255,255,255,0.15)");
-  fctx.fillStyle=gradient;
-  fctx.fillRect(0,0,fogCanvas.width,fogCanvas.height);
-  fogOffset=(fogOffset+0.3)%fogCanvas.width;
-  fogId=requestAnimationFrame(animateFog);
-}
-function startFog(){resizeCanvas();fogActive=true;cancelAnimationFrame(fogId);animateFog();}
-function stopFog(){fogActive=false;cancelAnimationFrame(fogId);fctx.clearRect(0,0,fogCanvas.width,fogCanvas.height);}
+  const sheet=document.getElementById('sheet');
+  document.getElementById('hamburger').onclick=()=>sheet.classList.toggle('open');
+  document.getElementById('toggleWind').onchange=e=>{
+    chipStates.wind=e.target.checked;renderChips();
+    if(chipStates.wind) startWindParticles(latestValues.wind,latestValues.wind_direction);
+    else stopWindParticles();
+  };
+  document.getElementById('togglePrecip').onchange=e=>{chipStates.precip=e.target.checked;renderChips();};
+  document.getElementById('toggleHumidity').onchange=e=>{chipStates.humidity=e.target.checked;renderChips();};
+  document.getElementById('basemap').onclick=e=>{
+    const b=e.target.closest('button[data-style]'); if(!b)return;
+    document.querySelectorAll('#basemap button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active'); setBasemap(b.dataset.style);
+  };
 
-// UI controls
-const sheet=document.getElementById('sheet');
-document.getElementById('hamburger').onclick=()=>sheet.classList.toggle('open');
-const chipStates={wind:true,precip:true,humidity:true};
-document.getElementById('toggleWind').onchange=e=>{
-  chipStates.wind=e.target.checked;renderChips();
-  if(chipStates.wind) startWindParticles(latestValues.wind,latestValues.wind_direction);
-  else stopWindParticles();
-};
-document.getElementById('togglePrecip').onchange=e=>{
-  chipStates.precip=e.target.checked;renderChips();
-  if(chipStates.precip) startPrecipitation(); else stopPrecipitation();
-};
-document.getElementById('toggleHumidity').onchange=e=>{
-  chipStates.humidity=e.target.checked;renderChips();
-  if(chipStates.humidity) startFog(); else stopFog();
-};
-document.getElementById('basemap').onclick=e=>{
-  const b=e.target.closest('button[data-style]'); if(!b)return;
-  document.querySelectorAll('#basemap button').forEach(x=>x.classList.remove('active'));
-  b.classList.add('active'); setBasemap(b.dataset.style);
-};
-window.addEventListener('resize',resizeCanvas);
-
-// Init
-locateUser();
+  locateUser();
 </script>
 </body>
 </html>
