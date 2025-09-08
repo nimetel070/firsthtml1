@@ -1,339 +1,176 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Glass Weather • Nearby</title>
-
-<!-- Leaflet (Map) -->
-<link
-  rel="stylesheet"
-  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<!-- Icons (Feather) -->
-<script src="https://unpkg.com/feather-icons"></script>
-
-<style>
-  :root{
-    --glass-bg: rgba(255,255,255,0.14);
-    --glass-border: rgba(255,255,255,0.25);
-    --card-bg: rgba(255,255,255,0.18);
-    --text: #0b0b0c;
-    --muted: rgba(0,0,0,0.55);
-    --shadow: 0 10px 30px rgba(0,0,0,0.20);
-    --radius: 20px;
-    --blur: 20px;
-  }
-
-  *{box-sizing:border-box}
-  html, body {height:100%; margin:0;}
-  body {
-    font-family: ui-rounded, SF Pro Rounded, SF Pro Display, -apple-system, Segoe UI, Roboto, system-ui, sans-serif;
-    color: var(--text);
-    background: radial-gradient(1200px 800px at 70% -10%, #dfe8ff 0%, #f5f7ff 35%, #f9fbff 60%, #ffffff 100%);
-    overflow: hidden;
-  }
-
-  /* Subtle parallax sheen */
-  .sheen {
-    position: fixed;
-    inset: -10% -10% auto auto;
-    width: 80vmax;
-    height: 80vmax;
-    background: radial-gradient(closest-side, rgba(255,255,255,0.55), rgba(255,255,255,0));
-    filter: blur(40px);
-    opacity: .6;
-    pointer-events: none;
-    mix-blend-mode: screen;
-    animation: drift 18s ease-in-out infinite alternate;
-  }
-  @keyframes drift { to { transform: translate3d(-4vw, 3vh, 0); opacity: .7; } }
-
-  /* Map container */
-  #map {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-  }
-
-  /* Wind particles canvas */
-  #windCanvas {
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    z-index: 2;
-    pointer-events: none;
-  }
-
-  /* Glass header */
-  .glass-header {
-    position: fixed;
-    top: 18px; left: 50%;
-    transform: translateX(-50%);
-    z-index: 4;
-    display: grid;
-    gap: 6px;
-    grid-auto-flow: column;
-    align-items: center;
-    padding: 12px 16px;
-    border-radius: 999px;
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    backdrop-filter: blur(var(--blur)) saturate(140%);
-    box-shadow: var(--shadow);
-  }
-
-  .title { font-weight: 700; }
-  .subtle { font-size: 12px; color: var(--muted); }
-
-  /* Clouds */
-  .clouds {
-    position: absolute;
-    top: -40px; left: 50%;
-    transform: translateX(-50%);
-    width: 60vw; max-width: 900px; height: 110px;
-    pointer-events: none;
-    filter: blur(8px) saturate(105%);
-  }
-  .cloud {
-    position: absolute; top: 10px;
-    width: 140px; height: 70px;
-    background:
-      radial-gradient(60px 60px at 40px 45px, rgba(255,255,255,0.9), rgba(255,255,255,0)) ,
-      radial-gradient(70px 70px at 90px 30px, rgba(255,255,255,0.85), rgba(255,255,255,0)),
-      radial-gradient(80px 80px at 65px 55px, rgba(255,255,255,0.8), rgba(255,255,255,0));
-    border-radius: 40px;
-    opacity: .75;
-    animation: float var(--t, 16s) ease-in-out infinite alternate;
-    transform: translateX(var(--x, 0)) translateY(var(--y, 0));
-  }
-  @keyframes float {
-    to { transform: translateX(calc(var(--x,0) + 40px)) translateY(calc(var(--y,0) + 8px)); opacity: .9; }
-  }
-
-  /* Info chips */
-  .chips {
-    position: fixed;
-    right: 18px; bottom: 18px;
-    display: grid; gap: 10px;
-    z-index: 4;
-  }
-  .chip {
-    display: grid; grid-auto-flow: column; align-items: center; gap: 8px;
-    padding: 10px 12px;
-    background: var(--card-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: 999px;
-    backdrop-filter: blur(var(--blur)) saturate(150%);
-    box-shadow: var(--shadow);
-  }
-  .chip .val { font-weight: 700; }
-
-  /* Hamburger FAB */
-  .fab {
-    position: fixed; left: 18px; bottom: 18px; z-index: 5;
-    display: grid; place-items: center;
-    width: 56px; height: 56px; border-radius: 16px;
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    backdrop-filter: blur(var(--blur)) saturate(160%);
-    box-shadow: var(--shadow);
-    cursor: pointer;
-  }
-
-  .sheet {
-    position: fixed; left: 18px; bottom: 86px; z-index: 5;
-    width: min(88vw, 360px);
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius);
-    backdrop-filter: blur(var(--blur)) saturate(180%);
-    box-shadow: var(--shadow);
-    padding: 14px;
-    transform: scale(.98) translateY(8px);
-    opacity: 0; pointer-events: none;
-    transition: .25s;
-  }
-  .sheet.open { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
-
-  .segmented {
-    display: grid; grid-auto-flow: column; gap: 6px;
-    background: rgba(255,255,255,0.10);
-    padding: 6px; border-radius: 12px;
-  }
-  .segmented button {
-    appearance: none; border: 0; padding: 8px 10px;
-    border-radius: 10px; cursor: pointer;
-    background: transparent; font-weight: 600;
-  }
-  .segmented button.active { background: rgba(255,255,255,0.55); }
-
-  .toast {
-    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
-    background: var(--card-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: 999px;
-    padding: 10px 14px;
-    backdrop-filter: blur(var(--blur)) saturate(140%);
-    box-shadow: var(--shadow);
-    z-index: 8;
-    display: none;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Apple-Style Weather UI</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #1e1e2f, #2a2a40);
+      color: white;
+    }
+    #map {
+      height: 100%;
+      width: 100%;
+      z-index: 1;
+    }
+    /* Hamburger button */
+    .hamburger {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      width: 40px;
+      height: 30px;
+      cursor: pointer;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .hamburger span {
+      display: block;
+      height: 4px;
+      background: rgba(255,255,255,0.9);
+      border-radius: 2px;
+      transition: 0.3s;
+    }
+    /* Menu panel */
+    .menu {
+      position: absolute;
+      bottom: 70px;
+      left: 20px;
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(15px);
+      border-radius: 16px;
+      padding: 12px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 1000;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    }
+    .chip {
+      padding: 6px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.2);
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .chip:hover {
+      background: rgba(255,255,255,0.35);
+    }
+    /* Ambient particles canvas */
+    #ambientParticles {
+      position:absolute;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      pointer-events:none;
+      z-index:2;
+    }
+  </style>
 </head>
 <body>
-  <div class="sheen"></div>
   <div id="map"></div>
-  <canvas id="windCanvas"></canvas>
-
-  <!-- Header -->
-  <div class="glass-header" id="header">
-    <div class="title">Nearby Weather</div>
-    <div class="subtle" id="headerSub">Finding your location…</div>
-    <div class="clouds" id="clouds"></div>
+  
+  <!-- Ambient Particles -->
+  <canvas id="ambientParticles"></canvas>
+  
+  <!-- Hamburger Menu -->
+  <div class="hamburger" id="hamburger">
+    <span></span>
+    <span></span>
+    <span></span>
   </div>
-
-  <div class="chips" id="chips"></div>
-
-  <!-- Hamburger -->
-  <button class="fab" id="hamburger"><i data-feather="menu"></i></button>
-
-  <!-- Sheet -->
-  <div class="sheet" id="sheet">
-    <h3>View Options</h3>
-    <div class="segmented" id="basemap">
-      <button data-style="standard" class="active">Standard</button>
-      <button data-style="topo">Topo</button>
-      <button data-style="satellite">Satellite</button>
-    </div>
-    <div>
-      <label><input type="checkbox" id="toggleClouds" checked /> Clouds</label><br>
-      <label><input type="checkbox" id="toggleWind" checked /> Wind</label><br>
-      <label><input type="checkbox" id="togglePrecip" checked /> Precipitation</label><br>
-      <label><input type="checkbox" id="toggleHumidity" checked /> Humidity</label>
-    </div>
+  <div class="menu" id="menu">
+    <div class="chip">Wind</div>
+    <div class="chip">Precipitation</div>
+    <div class="chip">Humidity</div>
   </div>
+  
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    /* Initialize map */
+    const map = L.map('map').setView([0, 0], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
 
-  <div class="toast" id="toast"></div>
-
-<script>
-  feather.replace();
-
-  // Clouds animation
-  const cloudsBox = document.getElementById('clouds');
-  function spawnClouds(){
-    cloudsBox.innerHTML='';
-    for(let i=0;i<6;i++){
-      const d=document.createElement('div');
-      d.className='cloud';
-      d.style.left=(i*16+Math.random()*8)+'%';
-      d.style.setProperty('--x',(Math.random()*40-20)+'px');
-      d.style.setProperty('--y',(Math.random()*8-4)+'px');
-      d.style.setProperty('--t',(14+Math.random()*8)+'s');
-      cloudsBox.appendChild(d);
+    /* Get location */
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        map.setView([lat, lon], 13);
+        L.marker([lat, lon]).addTo(map).bindPopup("You are here").openPopup();
+      });
     }
-  }
-  spawnClouds();
 
-  // Map setup
-  let map, baseLayers={}, currentBase='standard';
-  function initMap(lat=20.59, lon=78.96, zoom=5){
-    map=L.map('map').setView([lat,lon],zoom);
-    baseLayers.standard=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    baseLayers.topo=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png');
-    baseLayers.satellite=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
-  }
-  function setBasemap(style){
-    if(currentBase&&baseLayers[currentBase]) map.removeLayer(baseLayers[currentBase]);
-    baseLayers[style].addTo(map); currentBase=style;
-  }
+    /* Hamburger toggle */
+    const hamburger = document.getElementById("hamburger");
+    const menu = document.getElementById("menu");
+    hamburger.addEventListener("click", () => {
+      menu.style.display = menu.style.display === "flex" ? "none" : "flex";
+    });
 
-  // Location
-  const headerSub=document.getElementById('headerSub');
-  function locateUser(){
-    if(!navigator.geolocation){ initMap(); return; }
-    navigator.geolocation.getCurrentPosition(pos=>{
-      initMap(pos.coords.latitude,pos.coords.longitude,14);
-      fetchWeather(pos.coords.latitude,pos.coords.longitude);
-    },()=>initMap());
-  }
+    /* Ambient particles */
+    const ambientCanvas = document.getElementById("ambientParticles");
+    const ambientCtx = ambientCanvas.getContext("2d");
+    function resizeAmbientCanvas() {
+      ambientCanvas.width = window.innerWidth;
+      ambientCanvas.height = window.innerHeight;
+    }
+    window.addEventListener("resize", resizeAmbientCanvas);
+    resizeAmbientCanvas();
 
-  // Weather
-  const chips=document.getElementById('chips');
-  let latestValues={wind:null,wind_direction:null,precip:null,humidity:null};
-  function chipEl(icon,label,val){
-    const e=document.createElement('div');
-    e.className='chip'; e.innerHTML=`<i data-feather="${icon}"></i> ${label}: <span class="val">${val}</span>`;
-    return e;
-  }
-  function renderChips(){
-    chips.innerHTML='';
-    if(chipStates.wind) chips.appendChild(chipEl('wind','Wind',latestValues.wind?Math.round(latestValues.wind)+' km/h':'—'));
-    if(chipStates.precip) chips.appendChild(chipEl('umbrella','Precip',latestValues.precip?latestValues.precip+' mm':'—'));
-    if(chipStates.humidity) chips.appendChild(chipEl('droplet','Humidity',latestValues.humidity?latestValues.humidity+'%':'—'));
-    feather.replace();
-  }
-  async function fetchWeather(lat,lon){
-    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=wind_speed_10m,wind_direction_10m,precipitation,relative_humidity_2m,cloud_cover`;
-    const r=await fetch(url); const d=await r.json();
-    latestValues.wind=d.current.wind_speed_10m;
-    latestValues.wind_direction=d.current.wind_direction_10m;
-    latestValues.precip=d.current.precipitation;
-    latestValues.humidity=d.current.relative_humidity_2m;
-    renderChips();
-    if(chipStates.wind) startWindParticles(latestValues.wind,latestValues.wind_direction);
-  }
-
-  // Wind particles
-  const windCanvas=document.getElementById('windCanvas');
-  const ctx=windCanvas.getContext('2d');
-  let particles=[],animId=null,windActive=false,windVector={x:0,y:0};
-  function resizeCanvas(){ windCanvas.width=map.getSize().x; windCanvas.height=map.getSize().y; }
-  function createParticles(n=250){particles=[];for(let i=0;i<n;i++){particles.push({x:Math.random()*windCanvas.width,y:Math.random()*windCanvas.height,age:Math.random()*100});}}
-  function animateParticles(){
-    if(!windActive)return;
-    ctx.clearRect(0,0,windCanvas.width,windCanvas.height);
-    ctx.strokeStyle="rgba(0,0,0,0.4)";
-    for(let p of particles){
-      const ox=p.x,oy=p.y;
-      p.x+=windVector.x*0.4; p.y+=windVector.y*0.4; p.age++;
-      ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(p.x,p.y); ctx.stroke();
-      if(p.x<0||p.y<0||p.x>windCanvas.width||p.y>windCanvas.height||p.age>100){
-        p.x=Math.random()*windCanvas.width; p.y=Math.random()*windCanvas.height; p.age=0;
+    class AmbientParticle {
+      constructor() { this.reset(); }
+      reset() {
+        this.x = Math.random() * ambientCanvas.width;
+        this.y = Math.random() * ambientCanvas.height;
+        this.size = Math.random() * 2 + 1;
+        this.speedX = (Math.random() - 0.5) * 0.2;
+        this.speedY = (Math.random() - 0.5) * 0.2;
+        this.alpha = 0;
+        this.fadeIn = true;
+      }
+      update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        if (this.fadeIn) {
+          this.alpha += 0.01;
+          if (this.alpha >= 0.8) this.fadeIn = false;
+        } else {
+          this.alpha -= 0.005;
+          if (this.alpha <= 0) this.reset();
+        }
+        if (this.x < 0) this.x = ambientCanvas.width;
+        if (this.x > ambientCanvas.width) this.x = 0;
+        if (this.y < 0) this.y = ambientCanvas.height;
+        if (this.y > ambientCanvas.height) this.y = 0;
+      }
+      draw() {
+        ambientCtx.beginPath();
+        ambientCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ambientCtx.fillStyle = `rgba(255,255,255,${this.alpha})`;
+        ambientCtx.fill();
       }
     }
-    animId=requestAnimationFrame(animateParticles);
-  }
-  function startWindParticles(speed,dir){
-    const rad=(dir-90)*Math.PI/180;
-    windVector={x:Math.cos(rad)*speed*0.5,y:Math.sin(rad)*speed*0.5};
-    resizeCanvas(); createParticles();
-    windActive=true; cancelAnimationFrame(animId); animateParticles();
-  }
-  function stopWindParticles(){windActive=false;cancelAnimationFrame(animId);ctx.clearRect(0,0,windCanvas.width,windCanvas.height);}
-  window.addEventListener('resize',()=>{resizeCanvas();createParticles();});
-
-  // UI controls
-  const sheet=document.getElementById('sheet');
-  document.getElementById('hamburger').onclick=()=>sheet.classList.toggle('open');
-  const chipStates={wind:true,precip:true,humidity:true};
-  document.getElementById('toggleClouds').onchange=e=>cloudsBox.style.display=e.target.checked?'block':'none';
-  document.getElementById('toggleWind').onchange=e=>{
-    chipStates.wind=e.target.checked;renderChips();
-    if(chipStates.wind) startWindParticles(latestValues.wind,latestValues.wind_direction);
-    else stopWindParticles();
-  };
-  document.getElementById('togglePrecip').onchange=e=>{chipStates.precip=e.target.checked;renderChips();};
-  document.getElementById('toggleHumidity').onchange=e=>{chipStates.humidity=e.target.checked;renderChips();};
-  document.getElementById('basemap').onclick=e=>{
-    const b=e.target.closest('button[data-style]'); if(!b)return;
-    document.querySelectorAll('#basemap button').forEach(x=>x.classList.remove('active'));
-    b.classList.add('active'); setBasemap(b.dataset.style);
-  };
-
-  // Init
-  locateUser();
-</script>
+    const ambientParticles = Array.from({ length: 120 }, () => new AmbientParticle());
+    function animateAmbientParticles() {
+      ambientCtx.clearRect(0, 0, ambientCanvas.width, ambientCanvas.height);
+      ambientParticles.forEach(p => { p.update(); p.draw(); });
+      requestAnimationFrame(animateAmbientParticles);
+    }
+    animateAmbientParticles();
+  </script>
 </body>
 </html>
