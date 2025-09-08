@@ -1,540 +1,289 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Apple-style Weather — Refined</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Glass Weather • Nearby</title>
 
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<!-- Leaflet (Map) -->
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <style>
-    /* Basic reset */
-    *{box-sizing:border-box;margin:0;padding:0}
-    html,body{height:100%;width:100%}
-    body{
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      background: linear-gradient(135deg,#0f1724 0%, #172033 60%);
-      color: #fff;
-      overflow: hidden;
-    }
+<!-- Icons (Feather) -->
+<script src="https://unpkg.com/feather-icons"></script>
 
-    /* Map fills screen */
-    #map {
-      position: absolute;
-      inset: 0;
-      z-index: 0;
-    }
+<style>
+  :root{
+    --glass-bg: rgba(255,255,255,0.14);
+    --glass-border: rgba(255,255,255,0.25);
+    --card-bg: rgba(255,255,255,0.18);
+    --text: #0b0b0c;
+    --muted: rgba(0,0,0,0.55);
+    --shadow: 0 10px 30px rgba(0,0,0,0.20);
+    --radius: 20px;
+    --blur: 20px;
+  }
 
-    /* Ambient particle canvas sits above the map */
-    #ambientParticles {
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-      pointer-events: none;
-      display: block;
-    }
+  *{box-sizing:border-box}
+  html, body {height:100%; margin:0;}
+  body {
+    font-family: ui-rounded, SF Pro Rounded, SF Pro Display, -apple-system, Segoe UI, Roboto, system-ui, sans-serif;
+    color: var(--text);
+    background: radial-gradient(1200px 800px at 70% -10%, #dfe8ff 0%, #f5f7ff 35%, #f9fbff 60%, #ffffff 100%);
+    overflow: hidden;
+  }
 
-    /* Floating UI layer */
-    .ui {
-      position: absolute;
-      inset: 0;
-      z-index: 3;
-      pointer-events: none; /* allow clicks to pass except on interactive children */
-    }
+  .sheen {
+    position: fixed;
+    inset: -10% -10% auto auto;
+    width: 80vmax;
+    height: 80vmax;
+    background: radial-gradient(closest-side, rgba(255,255,255,0.55), rgba(255,255,255,0));
+    filter: blur(40px);
+    opacity: .6;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    animation: drift 18s ease-in-out infinite alternate;
+  }
+  @keyframes drift { to { transform: translate3d(-4vw, 3vh, 0); opacity: .7; } }
 
-    /* Toast message (small) */
-    .toast {
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      bottom: 22px;
-      background: rgba(255,255,255,0.08);
-      color: #fff;
-      padding: 8px 12px;
-      border-radius: 999px;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 8px 20px rgba(0,0,0,0.4);
-      font-size: 13px;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity .28s ease, transform .28s ease;
-    }
-    .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+  #map {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
 
-    /* Hamburger button (bottom-left) */
-    .hamburger {
-      position: absolute;
-      left: 18px;
-      bottom: 18px;
-      width: 56px;
-      height: 56px;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.06);
-      backdrop-filter: blur(10px);
-      display: grid;
-      place-items: center;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.45);
-      cursor: pointer;
-      pointer-events: auto;
-      transition: transform .14s ease;
-    }
-    .hamburger:active { transform: scale(.98); }
+  #windCanvas {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 2;
+    pointer-events: none;
+  }
 
-    .hamburger .lines {
-      width: 26px;
-      height: 16px;
-      display:flex;
-      flex-direction:column;
-      justify-content:space-between;
-    }
-    .hamburger .lines span {
-      display:block;
-      height: 2px;
-      background: linear-gradient(90deg, rgba(255,255,255,0.95), rgba(255,255,255,0.75));
-      border-radius:2px;
-      transition: transform .25s cubic-bezier(.2,.9,.2,1), opacity .18s;
-    }
-    .hamburger.open .lines span:nth-child(1){ transform: translateY(7px) rotate(45deg); }
-    .hamburger.open .lines span:nth-child(2){ opacity:0; transform: scaleX(.6); }
-    .hamburger.open .lines span:nth-child(3){ transform: translateY(-7px) rotate(-45deg); }
+  .glass-header {
+    position: fixed;
+    top: 18px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 4;
+    display: grid;
+    gap: 6px;
+    grid-auto-flow: column;
+    align-items: center;
+    padding: 12px 16px;
+    border-radius: 999px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(var(--blur)) saturate(140%);
+    box-shadow: var(--shadow);
+  }
 
-    /* Menu panel */
-    .menu {
-      position: absolute;
-      left: 18px;
-      bottom: 86px;
-      width: min(92vw, 340px);
-      background: rgba(255,255,255,0.06);
-      backdrop-filter: blur(14px) saturate(140%);
-      border-radius: 14px;
-      padding: 12px;
-      pointer-events: auto;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
-      transform: translateY(8px);
-      opacity: 0;
-      transition: opacity .24s ease, transform .24s cubic-bezier(.2,.9,.2,1);
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      z-index: 4;
-    }
-    .menu.open { opacity: 1; transform: translateY(0); }
+  .title { font-weight: 700; }
+  .subtle { font-size: 12px; color: var(--muted); }
 
-    .menu h4 {
-      font-size: 14px;
-      margin-bottom: 6px;
-      color: rgba(255,255,255,0.95);
-      pointer-events: none;
-    }
+  .chips {
+    position: fixed;
+    right: 18px; bottom: 18px;
+    display: grid; gap: 10px;
+    z-index: 4;
+  }
+  .chip {
+    display: grid; grid-auto-flow: column; align-items: center; gap: 8px;
+    padding: 10px 12px;
+    background: var(--card-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    backdrop-filter: blur(var(--blur)) saturate(150%);
+    box-shadow: var(--shadow);
+  }
+  .chip .val { font-weight: 700; }
 
-    .option-row {
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 10px;
-      padding: 8px;
-      border-radius: 10px;
-      background: rgba(255,255,255,0.02);
-    }
-    .option-row label { font-size: 14px; color: #fff; }
+  .fab {
+    position: fixed; left: 18px; bottom: 18px; z-index: 5;
+    display: grid; place-items: center;
+    width: 56px; height: 56px; border-radius: 16px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(var(--blur)) saturate(160%);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+  }
 
-    /* Toggle checkbox look (simple) */
-    .switch {
-      width: 42px; height: 24px; border-radius: 20px;
-      background: rgba(255,255,255,0.18);
-      padding: 3px;
-      display:flex; align-items:center;
-    }
-    .switch input { width:100%; height:100%; appearance:none; position:relative; border-radius:999px; background:transparent; cursor:pointer; }
-    .switch input::after {
-      content:''; width:18px; height:18px; background:#fff; border-radius:50%;
-      display:block; transform: translateX(0); transition: transform .18s cubic-bezier(.2,.9,.2,1);
-    }
-    .switch input:checked::after { transform: translateX(18px); }
+  .sheet {
+    position: fixed; left: 18px; bottom: 86px; z-index: 5;
+    width: min(88vw, 360px);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    backdrop-filter: blur(var(--blur)) saturate(180%);
+    box-shadow: var(--shadow);
+    padding: 14px;
+    transform: scale(.98) translateY(8px);
+    opacity: 0; pointer-events: none;
+    transition: .25s;
+  }
+  .sheet.open { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
 
-    /* Small chips at top-right (for values) */
-    .chips {
-      position: absolute;
-      right: 18px;
-      top: 18px;
-      display:flex;
-      gap:10px;
-      z-index:4;
-      pointer-events: auto;
-    }
-    .chip {
-      background: rgba(255,255,255,0.06);
-      padding: 8px 12px;
-      border-radius: 999px;
-      backdrop-filter: blur(10px);
-      font-weight:600;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.45);
-      color: #fff;
-    }
+  .segmented {
+    display: grid; grid-auto-flow: column; gap: 6px;
+    background: rgba(255,255,255,0.10);
+    padding: 6px; border-radius: 12px;
+  }
+  .segmented button {
+    appearance: none; border: 0; padding: 8px 10px;
+    border-radius: 10px; cursor: pointer;
+    background: transparent; font-weight: 600;
+  }
+  .segmented button.active { background: rgba(255,255,255,0.55); }
 
-    /* Small responsive tweaks */
-    @media (max-width:420px){
-      .hamburger { width:50px; height:50px; left:12px; bottom:12px; border-radius:12px;}
-      .menu { left:12px; bottom:72px; width: calc(100vw - 24px); }
-      .chips { right:12px; top:12px; }
-    }
-  </style>
+  .toast {
+    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+    background: var(--card-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    padding: 10px 14px;
+    backdrop-filter: blur(var(--blur)) saturate(140%);
+    box-shadow: var(--shadow);
+    z-index: 8;
+    display: none;
+  }
+</style>
 </head>
 <body>
-  <!-- Map -->
-  <div id="map" aria-label="Map container"></div>
+  <div class="sheen"></div>
+  <div id="map"></div>
+  <canvas id="windCanvas"></canvas>
 
-  <!-- Ambient particles canvas -->
-  <canvas id="ambientParticles" aria-hidden="true"></canvas>
-
-  <!-- Floating UI layer -->
-  <div class="ui" aria-hidden="false">
-    <!-- Value chips -->
-    <div class="chips" id="chipsContainer" aria-hidden="false"></div>
-
-    <!-- Hamburger -->
-    <button class="hamburger" id="hamburgerBtn" aria-expanded="false" aria-label="Open view options">
-      <span class="lines" aria-hidden="true">
-        <span></span><span></span><span></span>
-      </span>
-    </button>
-
-    <!-- Menu -->
-    <div class="menu" id="menuPanel" role="dialog" aria-label="View options">
-      <h4>View options</h4>
-
-      <div class="option-row">
-        <label for="toggleWind">Wind</label>
-        <div class="switch"><input id="toggleWind" type="checkbox" checked/></div>
-      </div>
-
-      <div class="option-row">
-        <label for="togglePrecip">Precipitation</label>
-        <div class="switch"><input id="togglePrecip" type="checkbox" checked/></div>
-      </div>
-
-      <div class="option-row">
-        <label for="toggleHumidity">Humidity</label>
-        <div class="switch"><input id="toggleHumidity" type="checkbox" checked/></div>
-      </div>
-    </div>
-
-    <!-- toast -->
-    <div class="toast" id="toast">Example toast</div>
+  <!-- Header -->
+  <div class="glass-header" id="header">
+    <div class="title">Nearby Weather</div>
+    <div class="subtle" id="headerSub">Finding your location…</div>
   </div>
 
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <div class="chips" id="chips"></div>
 
-  <script>
-  (function(){
-    // Helpers
-    const toastEl = document.getElementById('toast');
-    let toastTimer = null;
-    function showToast(msg, time=2800){
-      toastEl.textContent = msg;
-      toastEl.classList.add('show');
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(()=> toastEl.classList.remove('show'), time);
-    }
+  <!-- Hamburger -->
+  <button class="fab" id="hamburger"><i data-feather="menu"></i></button>
 
-    // Map init
-    const defaultCoords = { lat: 20.5937, lon: 78.9629 }; // India fallback
-    const map = L.map('map', { zoomControl: true }).setView([defaultCoords.lat, defaultCoords.lon], 5);
+  <!-- Sheet -->
+  <div class="sheet" id="sheet">
+    <h3>View Options</h3>
+    <div class="segmented" id="basemap">
+      <button data-style="standard" class="active">Standard</button>
+      <button data-style="topo">Topo</button>
+      <button data-style="satellite">Satellite</button>
+    </div>
+    <div>
+      <label><input type="checkbox" id="toggleWind" checked /> Wind</label><br>
+      <label><input type="checkbox" id="togglePrecip" checked /> Precipitation</label><br>
+      <label><input type="checkbox" id="toggleHumidity" checked /> Humidity</label>
+    </div>
+  </div>
 
-    // Tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+  <div class="toast" id="toast"></div>
 
-    // Marker holder (so we can remove/replace)
-    let userMarker = null;
+<script>
+  feather.replace();
 
-    // Chips UI
-    const chipsContainer = document.getElementById('chipsContainer');
-    function renderChips(values = {}) {
-      chipsContainer.innerHTML = '';
-      if (values.wind !== undefined) {
-        const c = document.createElement('div');
-        c.className = 'chip';
-        c.textContent = `Wind: ${values.wind === null ? '—' : Math.round(values.wind) + ' km/h'}`;
-        chipsContainer.appendChild(c);
-      }
-      if (values.precip !== undefined) {
-        const c = document.createElement('div');
-        c.className = 'chip';
-        c.textContent = `Precip: ${values.precip === null ? '—' : values.precip + ' mm'}`;
-        chipsContainer.appendChild(c);
-      }
-      if (values.humidity !== undefined) {
-        const c = document.createElement('div');
-        c.className = 'chip';
-        c.textContent = `Humidity: ${values.humidity === null ? '—' : values.humidity + '%'}`;
-        chipsContainer.appendChild(c);
-      }
-    }
+  // Map setup
+  let map, baseLayers={}, currentBase='standard';
+  function initMap(lat=20.59, lon=78.96, zoom=5){
+    map=L.map('map').setView([lat,lon],zoom);
+    baseLayers.standard=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    baseLayers.topo=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png');
+    baseLayers.satellite=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
+  }
+  function setBasemap(style){
+    if(currentBase&&baseLayers[currentBase]) map.removeLayer(baseLayers[currentBase]);
+    baseLayers[style].addTo(map); currentBase=style;
+  }
 
-    // Ambient particles (retina/crisp)
-    const ambientCanvas = document.getElementById('ambientParticles');
-    const aCtx = ambientCanvas.getContext('2d');
-    let particles = [];
-    const PARTICLE_COUNT = 120;
+  // Location
+  const headerSub=document.getElementById('headerSub');
+  function locateUser(){
+    if(!navigator.geolocation){ initMap(); return; }
+    navigator.geolocation.getCurrentPosition(pos=>{
+      initMap(pos.coords.latitude,pos.coords.longitude,14);
+      fetchWeather(pos.coords.latitude,pos.coords.longitude);
+    },()=>initMap());
+  }
 
-    function setCanvasSize() {
-      const rect = document.getElementById('map').getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-      const w = Math.max(1, Math.floor(rect.width));
-      const h = Math.max(1, Math.floor(rect.height));
-      ambientCanvas.style.width = w + 'px';
-      ambientCanvas.style.height = h + 'px';
-      ambientCanvas.width = Math.floor(w * dpr);
-      ambientCanvas.height = Math.floor(h * dpr);
-      aCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
+  // Weather
+  const chips=document.getElementById('chips');
+  let latestValues={wind:null,wind_direction:null,precip:null,humidity:null};
+  function chipEl(icon,label,val){
+    const e=document.createElement('div');
+    e.className='chip'; e.innerHTML=`<i data-feather="${icon}"></i> ${label}: <span class="val">${val}</span>`;
+    return e;
+  }
+  function renderChips(){
+    chips.innerHTML='';
+    if(chipStates.wind) chips.appendChild(chipEl('wind','Wind',latestValues.wind?Math.round(latestValues.wind)+' km/h':'—'));
+    if(chipStates.precip) chips.appendChild(chipEl('umbrella','Precip',latestValues.precip?latestValues.precip+' mm':'—'));
+    if(chipStates.humidity) chips.appendChild(chipEl('droplet','Humidity',latestValues.humidity?latestValues.humidity+'%':'—'));
+    feather.replace();
+  }
+  async function fetchWeather(lat,lon){
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=wind_speed_10m,wind_direction_10m,precipitation,relative_humidity_2m`;
+    const r=await fetch(url); const d=await r.json();
+    latestValues.wind=d.current.wind_speed_10m;
+    latestValues.wind_direction=d.current.wind_direction_10m;
+    latestValues.precip=d.current.precipitation;
+    latestValues.humidity=d.current.relative_humidity_2m;
+    renderChips();
+    if(chipStates.wind) startWindParticles(latestValues.wind,latestValues.wind_direction);
+  }
 
-    class Particle {
-      constructor() { this.reset(true); }
-      reset(init=false) {
-        const rect = document.getElementById('map').getBoundingClientRect();
-        this.x = Math.random() * rect.width;
-        this.y = Math.random() * rect.height;
-        this.r = Math.random() * 1.8 + 0.6;
-        this.vx = (Math.random() - 0.5) * 0.18;
-        this.vy = (Math.random() - 0.5) * 0.18;
-        this.alpha = init ? Math.random() * 0.6 : 0;
-        this.fadeIn = init ? Math.random() > 0.5 : true;
-      }
-      update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        if (this.fadeIn) {
-          this.alpha += 0.008;
-          if (this.alpha >= 0.75) this.fadeIn = false;
-        } else {
-          this.alpha -= 0.004;
-          if (this.alpha <= 0) this.reset();
-        }
-        const rect = document.getElementById('map').getBoundingClientRect();
-        if (this.x < -10) this.x = rect.width + 10;
-        if (this.x > rect.width + 10) this.x = -10;
-        if (this.y < -10) this.y = rect.height + 10;
-        if (this.y > rect.height + 10) this.y = -10;
-      }
-      draw(ctx) {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255,255,255,${this.alpha})`;
-        ctx.fill();
+  // Wind particles
+  const windCanvas=document.getElementById('windCanvas');
+  const ctx=windCanvas.getContext('2d');
+  let particles=[],animId=null,windActive=false,windVector={x:0,y:0};
+  function resizeCanvas(){ windCanvas.width=map.getSize().x; windCanvas.height=map.getSize().y; }
+  function createParticles(n=250){particles=[];for(let i=0;i<n;i++){particles.push({x:Math.random()*windCanvas.width,y:Math.random()*windCanvas.height,age:Math.random()*100});}}
+  function animateParticles(){
+    if(!windActive)return;
+    ctx.clearRect(0,0,windCanvas.width,windCanvas.height);
+    ctx.strokeStyle="rgba(0,0,0,0.4)";
+    for(let p of particles){
+      const ox=p.x,oy=p.y;
+      p.x+=windVector.x*0.4; p.y+=windVector.y*0.4; p.age++;
+      ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(p.x,p.y); ctx.stroke();
+      if(p.x<0||p.y<0||p.x>windCanvas.width||p.y>windCanvas.height||p.age>100){
+        p.x=Math.random()*windCanvas.width; p.y=Math.random()*windCanvas.height; p.age=0;
       }
     }
+    animId=requestAnimationFrame(animateParticles);
+  }
+  function startWindParticles(speed,dir){
+    const rad=(dir-90)*Math.PI/180;
+    windVector={x:Math.cos(rad)*speed*0.5,y:Math.sin(rad)*speed*0.5};
+    resizeCanvas(); createParticles();
+    windActive=true; cancelAnimationFrame(animId); animateParticles();
+  }
+  function stopWindParticles(){windActive=false;cancelAnimationFrame(animId);ctx.clearRect(0,0,windCanvas.width,windCanvas.height);}
+  window.addEventListener('resize',()=>{resizeCanvas();createParticles();});
 
-    function initParticles() {
-      setCanvasSize();
-      particles = Array.from({length:PARTICLE_COUNT}, () => new Particle());
-    }
+  // UI controls
+  const sheet=document.getElementById('sheet');
+  document.getElementById('hamburger').onclick=()=>sheet.classList.toggle('open');
+  const chipStates={wind:true,precip:true,humidity:true};
+  document.getElementById('toggleWind').onchange=e=>{
+    chipStates.wind=e.target.checked;renderChips();
+    if(chipStates.wind) startWindParticles(latestValues.wind,latestValues.wind_direction);
+    else stopWindParticles();
+  };
+  document.getElementById('togglePrecip').onchange=e=>{chipStates.precip=e.target.checked;renderChips();};
+  document.getElementById('toggleHumidity').onchange=e=>{chipStates.humidity=e.target.checked;renderChips();};
+  document.getElementById('basemap').onclick=e=>{
+    const b=e.target.closest('button[data-style]'); if(!b)return;
+    document.querySelectorAll('#basemap button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active'); setBasemap(b.dataset.style);
+  };
 
-    function animateParticles() {
-      aCtx.clearRect(0,0,ambientCanvas.width, ambientCanvas.height);
-      // use untransformed size for loops (dpr accounted by setTransform)
-      const rect = document.getElementById('map').getBoundingClientRect();
-      aCtx.save();
-      // draw
-      for (let p of particles) {
-        p.update();
-        p.draw(aCtx);
-      }
-      aCtx.restore();
-      requestAnimationFrame(animateParticles);
-    }
-
-    // Start particles after sizing
-    function startAmbient() {
-      initParticles();
-      requestAnimationFrame(animateParticles);
-    }
-
-    // Responsive handling
-    window.addEventListener('resize', () => {
-      setCanvasSize();
-      // reposition particles within new rect
-      const rect = document.getElementById('map').getBoundingClientRect();
-      for (let p of particles) {
-        if (p.x > rect.width) p.x = Math.random() * rect.width;
-        if (p.y > rect.height) p.y = Math.random() * rect.height;
-      }
-    });
-
-    // Menu interactions
-    const ham = document.getElementById('hamburgerBtn');
-    const menu = document.getElementById('menuPanel');
-    ham.addEventListener('click', () => {
-      const open = menu.classList.toggle('open');
-      ham.classList.toggle('open', open);
-      ham.setAttribute('aria-expanded', open ? 'true' : 'false');
-    });
-
-    // Toggle switches (UI control - do nothing heavy here)
-    const toggleWind = document.getElementById('toggleWind');
-    const togglePrecip = document.getElementById('togglePrecip');
-    const toggleHumidity = document.getElementById('toggleHumidity');
-
-    // Default latest values container
-    let latestValues = { wind: null, precip: null, humidity: null, wind_direction: null };
-
-    // Fetch weather (Open-Meteo)
-    async function fetchWeather(lat, lon) {
-      try {
-        const url = new URL('https://api.open-meteo.com/v1/forecast');
-        url.searchParams.set('latitude', lat);
-        url.searchParams.set('longitude', lon);
-        url.searchParams.set('current_weather', 'true');
-        // Open-Meteo current_weather has windspeed and winddirection, but for humidity/precip we ask current params
-        // Use the non-current "current" fields alternative if necessary; we'll attempt to read both patterns:
-        url.searchParams.set('hourly', 'relativehumidity_2m,precipitation');
-        url.searchParams.set('timezone', 'auto');
-
-        const res = await fetch(url.toString());
-        const d = await res.json();
-        // Prefer d.current_weather if present
-        if (d.current_weather) {
-          latestValues.wind = d.current_weather.windspeed ?? latestValues.wind;
-          latestValues.wind_direction = d.current_weather.winddirection ?? latestValues.wind_direction;
-        }
-        // Try to glean hourly latest values (approx)
-        if (d.hourly && d.hourly.time && d.hourly.relativehumidity_2m) {
-          // pick the last entry
-          const lastIndex = d.hourly.time.length - 1;
-          latestValues.humidity = d.hourly.relativehumidity_2m[lastIndex] ?? latestValues.humidity;
-          latestValues.precip = d.hourly.precipitation[lastIndex] ?? latestValues.precip;
-        }
-        renderChips(latestValues);
-
-        // (we are not showing wind-driven particles anymore; ambient only)
-        // But we can show a short toast if wind is strong:
-        if (typeof latestValues.wind === 'number' && latestValues.wind > 30) {
-          showToast('High winds — be careful outdoors');
-        }
-      } catch (err) {
-        console.warn('weather fetch failed', err);
-        showToast('Could not fetch live weather');
-      }
-    }
-
-    // Show user location on the map
-    function showUserOnMap(lat, lon, accuracy) {
-      if (userMarker) {
-        map.removeLayer(userMarker);
-        userMarker = null;
-      }
-      userMarker = L.marker([lat, lon]).addTo(map).bindPopup('Your location').openPopup();
-      // circle for accuracy (optional)
-      if (accuracy && typeof accuracy === 'number') {
-        L.circle([lat, lon], { radius: Math.max(20, accuracy), color: '#66b2ff', weight: 1, fillOpacity: 0.06 }).addTo(map);
-      }
-    }
-
-    // Locate user
-    function locateUserAndLoad() {
-      if (!navigator.geolocation) {
-        showToast('Geolocation not available — using fallback');
-        // keep default map center
-        setTimeout(() => {
-          setCanvasSize();
-          startAmbient();
-          fetchWeather(defaultCoords.lat, defaultCoords.lon);
-        }, 300);
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition((pos) => {
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
-        const acc = pos.coords.accuracy;
-        map.setView([lat, lon], 13, { animate: true });
-        showUserOnMap(lat, lon, acc);
-
-        // initialize canvas sizing AFTER map settles visually
-        setTimeout(() => {
-          setCanvasSize();
-          startAmbient();
-        }, 120);
-
-        // fetch weather once
-        fetchWeather(lat, lon);
-
-      }, (err) => {
-        console.warn('geolocation err', err);
-        showToast('Location denied or unavailable — using fallback');
-        // fallback
-        map.setView([defaultCoords.lat, defaultCoords.lon], 5);
-        setTimeout(() => {
-          setCanvasSize();
-          startAmbient();
-          fetchWeather(defaultCoords.lat, defaultCoords.lon);
-        }, 120);
-      }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 12000 });
-    }
-
-    // Render chips function
-    function renderChips(vals) {
-      const current = {
-        wind: toggleWind.checked ? (vals.wind ?? null) : undefined,
-        precip: togglePrecip.checked ? (vals.precip ?? null) : undefined,
-        humidity: toggleHumidity.checked ? (vals.humidity ?? null) : undefined
-      };
-      renderChipsUI(current);
-    }
-    function renderChipsUI(values) {
-      const out = {};
-      if (values.wind !== undefined) out.wind = values.wind;
-      if (values.precip !== undefined) out.precip = values.precip;
-      if (values.humidity !== undefined) out.humidity = values.humidity;
-      renderChips(out);
-    }
-    function renderChips(obj) {
-      // keep simple: call earlier defined renderChips (closure)
-      // We'll reuse the top-level UI function from before:
-      chipsContainer.innerHTML = '';
-      if ('wind' in obj) {
-        const el = document.createElement('div'); el.className = 'chip';
-        el.textContent = obj.wind === null ? 'Wind: —' : `Wind: ${Math.round(obj.wind)} km/h`;
-        chipsContainer.appendChild(el);
-      }
-      if ('precip' in obj) {
-        const el = document.createElement('div'); el.className = 'chip';
-        el.textContent = obj.precip === null ? 'Precip: —' : `Precip: ${obj.precip} mm`;
-        chipsContainer.appendChild(el);
-      }
-      if ('humidity' in obj) {
-        const el = document.createElement('div'); el.className = 'chip';
-        el.textContent = obj.humidity === null ? 'Humidity: —' : `Humidity: ${Math.round(obj.humidity)}%`;
-        chipsContainer.appendChild(el);
-      }
-    }
-
-    // Toggle handlers: update chips immediately when toggles change
-    toggleWind.addEventListener('change', () => renderChips(latestValues));
-    togglePrecip.addEventListener('change', () => renderChips(latestValues));
-    toggleHumidity.addEventListener('change', () => renderChips(latestValues));
-
-    // Kick everything off
-    locateUserAndLoad();
-
-    // Ensure canvas resizes if map container changes size (Leaflet may change after window resize)
-    map.on('resize', () => { setCanvasSize(); });
-    // Also if user drags map, optionally fetch new weather for center (debounced)
-    let dragTimeout = null;
-    map.on('moveend', () => {
-      clearTimeout(dragTimeout);
-      dragTimeout = setTimeout(() => {
-        const c = map.getCenter();
-        fetchWeather(c.lat, c.lng);
-      }, 600);
-    });
-
-  })();
-  </script>
+  // Init
+  locateUser();
+</script>
 </body>
 </html>
