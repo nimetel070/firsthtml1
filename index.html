@@ -1,295 +1,488 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Apple-Style Weather</title>
-<!-- Leaflet CSS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-<!-- Feather Icons -->
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Apple-Style Weather — Liquid Glass</title>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-sA+e2kGQ3pYB1g5Zk6q3q6b9q2qY8k2YQfCkq2fQ4oM=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-o9N1j7k0zABk6r5m2QnqGq4T4w5oQXrFqCjF5a8g4+k=" crossorigin=""></script>
+
+<!-- Feather icons -->
 <script src="https://unpkg.com/feather-icons"></script>
+
 <style>
-  /* ---------------- Fonts ---------------- */
-  body {
-    margin: 0;
-    font-family: -apple-system, "SF Pro Rounded", Segoe UI, Roboto, system-ui, sans-serif;
-    background: radial-gradient(circle at 20% 20%, #dfe8ff, #f5f7ff 40%, #f9fbff 70%, #ffffff);
-    overflow: hidden;
-    height: 100vh;
+  :root{
+    --glass-bg: rgba(255,255,255,0.16);
+    --glass-border: rgba(255,255,255,0.25);
+    --glass-strong: rgba(255,255,255,0.20);
+    --muted: rgba(0,0,0,0.55);
+    --accent: rgba(10,120,255,0.95);
+    --chip-radius: 18px;
   }
 
-  /* ---------------- Floating sheen ---------------- */
-  body::after {
-    content: '';
-    position: absolute;
-    width: 300%;
-    height: 300%;
-    top: -100%;
-    left: -100%;
-    background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 60%);
-    filter: blur(200px);
-    animation: sheen 15s linear infinite;
-    pointer-events: none;
+  /* --------- Base & fonts ---------- */
+  html,body{height:100%;margin:0;overflow:hidden}
+  body{
+    font-family: -apple-system, "SF Pro Rounded", "Segoe UI", Roboto, system-ui, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    background: radial-gradient(circle at 10% 10%, #dfe8ff 0%, #f5f7ff 30%, #f9fbff 70%, #ffffff 100%);
+    color:#0b1220;
+    position:relative;
   }
 
-  @keyframes sheen {
-    0% { transform: rotate(0deg) translate(0,0);}
-    100% { transform: rotate(360deg) translate(0,0);}
+  /* subtle floating sheen */
+  body::after{
+    content:"";
+    position:absolute;
+    inset:-40%;
+    background: radial-gradient(40% 40% at 30% 25%, rgba(255,255,255,0.30), transparent 20%),
+                radial-gradient(30% 30% at 70% 75%, rgba(255,255,255,0.12), transparent 30%);
+    filter: blur(110px) saturate(120%);
+    animation: sheen 18s linear infinite;
+    pointer-events:none;
+    z-index:0;
   }
+  @keyframes sheen{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 
-  /* ---------------- Glass Panel ---------------- */
-  .glass {
-    background: rgba(255,255,255,0.16);
-    border: 1px solid rgba(255,255,255,0.25);
-    backdrop-filter: blur(20px) saturate(160%);
+  /* ---------- Map ---------- */
+  #map { position:absolute; inset:0; z-index:0; }
+
+  /* ---------- Glass helper ---------- */
+  .glass{
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     border-radius: 20px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-    color: #000;
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    box-shadow: 0 8px 30px rgba(9,20,40,0.08);
+    color: inherit;
+    z-index:1000;
   }
 
-  /* ---------------- Header ---------------- */
-  #header {
+  /* ---------- Header ---------- */
+  #header{
     position: fixed;
-    top: 20px;
+    top: 18px;
     left: 50%;
     transform: translateX(-50%);
-    padding: 16px 24px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    z-index: 1000;
-    transition: all 0.3s ease;
+    padding: 14px 20px;
+    display:flex;
+    gap:8px;
+    align-items:center;
+    min-width:260px;
+    max-width:86%;
+    justify-content:center;
   }
-  #header h1 {
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: bold;
-  }
-  #header p {
-    margin: 4px 0 0;
-    font-size: 0.9rem;
-    color: rgba(0,0,0,0.6);
-  }
+  #title-wrap { display:flex; flex-direction:column; align-items:center; gap:2px; }
+  #appTitle { font-weight:700; font-size:1.15rem; margin:0; letter-spacing:0.2px; }
+  #location-status { margin:0; font-size:0.86rem; color:var(--muted); }
 
-  /* ---------------- Chips ---------------- */
-  .chips {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    z-index: 1000;
-  }
+  /* ---------- Chips stack ---------- */
+  .chips { position:fixed; right:18px; bottom:18px; display:flex; flex-direction:column; gap:12px; z-index:1000; }
   .chip {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
-    font-size: 0.95rem;
-    transition: all 0.3s ease;
+    display:flex; align-items:center; gap:10px; padding:10px 14px;
+    border-radius: var(--chip-radius);
+    min-width:160px; max-width:260px;
+    font-size:0.95rem;
+    transition:transform .28s cubic-bezier(.2,.8,.2,1), opacity .25s;
   }
+  .chip .value { font-weight:600; }
+  .chip-muted { color:var(--muted); font-size:0.85rem; font-weight:500; }
 
-  /* ---------------- FAB ---------------- */
+  /* ---------- FAB ---------- */
   #fab {
     position: fixed;
-    bottom: 20px;
-    left: 20px;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-    z-index: 1000;
-    transition: all 0.3s ease;
+    left:18px; bottom:18px;
+    width:56px; height:56px; border-radius:50%;
+    display:grid; place-items:center; cursor:pointer;
+    transition: transform .18s ease, box-shadow .18s ease;
   }
+  #fab:active{ transform:scale(.96) }
 
-  /* ---------------- Sheet ---------------- */
-  #sheet {
+  /* ---------- Sheet ---------- */
+  #sheet{
     position: fixed;
-    bottom: 90px;
-    left: 20px;
-    width: 260px;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    opacity: 0;
-    pointer-events: none;
-    transition: all 0.3s ease;
-    z-index: 1000;
+    left:18px; bottom:86px;
+    width:320px; max-width:calc(100% - 56px);
+    padding:14px; display:flex; flex-direction:column; gap:12px;
+    transform-origin: bottom left;
+    opacity:0; pointer-events:none; transform: translateY(8px) scale(.98);
   }
-  #sheet.show {
-    opacity: 1;
-    pointer-events: auto;
+  #sheet.show{ opacity:1; pointer-events:auto; transform: translateY(0) scale(1); }
+
+  .segmented{ display:flex; gap:6px; }
+  .segmented button{
+    flex:1; padding:8px 10px; border-radius:12px; border:none; cursor:pointer;
+    background: rgba(255,255,255,0.10); font-weight:600;
   }
-  .segmented {
-    display: flex;
-    gap: 4px;
+  .segmented button.active{ background: rgba(255,255,255,0.24); box-shadow: inset 0 -2px 0 rgba(0,0,0,0.04); }
+
+  .option-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .option-row label{ display:flex; gap:10px; align-items:center; font-weight:600; color:var(--muted); }
+  .option-row input[type="checkbox"]{ width:18px;height:18px; border-radius:6px; accent-color: var(--accent); }
+
+  /* ---------- Toast ---------- */
+  #toast{
+    position: fixed; left:50%; bottom:18px; transform:translateX(-50%);
+    padding:10px 16px; border-radius:12px; min-width:160px; text-align:center;
+    opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease;
   }
-  .segmented button {
-    flex: 1;
-    padding: 8px;
-    border: none;
-    border-radius: 12px;
-    background: rgba(255,255,255,0.14);
-    color: #000;
-    cursor: pointer;
-    transition: 0.3s;
-  }
-  .segmented button.active {
-    background: rgba(255,255,255,0.25);
-    font-weight: bold;
-  }
-  label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.9rem;
+  #toast.show{ opacity:1; pointer-events:auto; transform: translateX(-50%) translateY(-6px); }
+
+  /* ---------- Wind canvas overlay ---------- */
+  #wind-canvas{
+    position:absolute; inset:0; z-index:500; pointer-events:none;
   }
 
-  /* ---------------- Map ---------------- */
-  #map {
-    width: 100%;
-    height: 100%;
-    position: absolute;
-    top: 0;
-    left: 0;
-  }
-
-  /* ---------------- Toast ---------------- */
-  #toast {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 12px 20px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.4s ease;
-    z-index: 1000;
-  }
-  #toast.show {
-    opacity: 1;
-    pointer-events: auto;
+  /* ---------- Responsive tweaks ---------- */
+  @media (max-width:520px){
+    #sheet{ width:260px; }
+    #header{ padding:12px 14px; }
+    .chip{ min-width:140px; }
   }
 </style>
 </head>
 <body>
-
-<!-- Header -->
-<div id="header" class="glass">
-  <h1>Weather App</h1>
-  <p id="location-status">Fetching location...</p>
-</div>
-
-<!-- Map -->
-<div id="map"></div>
-
-<!-- Chips -->
-<div class="chips" id="chips">
-  <div class="chip glass" id="wind"><i data-feather="wind"></i> Wind: -- km/h</div>
-  <div class="chip glass" id="precip"><i data-feather="cloud-rain"></i> Precipitation: -- mm</div>
-  <div class="chip glass" id="humidity"><i data-feather="droplet"></i> Humidity: --%</div>
-</div>
-
-<!-- FAB -->
-<div id="fab" class="glass"><i data-feather="settings"></i></div>
-
-<!-- Sheet -->
-<div id="sheet" class="glass">
-  <div class="segmented">
-    <button class="active" data-layer="Standard">Standard</button>
-    <button data-layer="Topo">Topo</button>
-    <button data-layer="Satellite">Satellite</button>
+  <!-- Header -->
+  <div id="header" class="glass">
+    <div id="title-wrap">
+      <div id="appTitle">Weather</div>
+      <div id="location-status">Detecting location…</div>
+    </div>
   </div>
-  <label><input type="checkbox" checked data-chip="wind"> Wind</label>
-  <label><input type="checkbox" checked data-chip="precip"> Precipitation</label>
-  <label><input type="checkbox" checked data-chip="humidity"> Humidity</label>
-</div>
 
-<!-- Toast -->
-<div id="toast" class="glass">Toast message</div>
+  <!-- Map -->
+  <div id="map"></div>
 
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <!-- Wind particle overlay -->
+  <canvas id="wind-canvas"></canvas>
+
+  <!-- Chips -->
+  <div class="chips" id="chips">
+    <div id="chip-wind" class="chip glass">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h13a4 4 0 0 0 0-8 3 3 0 0 0-3 3"/></svg>
+      <div>
+        <div style="font-size:0.83rem;color:var(--muted)">Wind</div>
+        <div class="value" id="wind-value">-- km/h • --°</div>
+      </div>
+    </div>
+
+    <div id="chip-precip" class="chip glass">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 13a4 4 0 0 0-8 0"/><path d="M12 3v4" /></svg>
+      <div>
+        <div style="font-size:0.83rem;color:var(--muted)">Precipitation</div>
+        <div class="value" id="precip-value">-- mm</div>
+      </div>
+    </div>
+
+    <div id="chip-humidity" class="chip glass">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2s-6 6-6 10a6 6 0 0 0 12 0c0-4-6-10-6-10z"/></svg>
+      <div>
+        <div style="font-size:0.83rem;color:var(--muted)">Humidity</div>
+        <div class="value" id="humidity-value">--%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAB -->
+  <div id="fab" class="glass" title="Settings" aria-label="Settings">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82L4.3 3.7A2 2 0 1 1 7.13.87l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V1a2 2 0 0 1 4 0v.09c.0 .7 .4 1.33 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01c.6 .18 1.0 .8 1 .51H21a2 2 0 0 1 0 4h-.09c-.7 0-1.33.4-1.51 1z"/></svg>
+  </div>
+
+  <!-- Settings Sheet -->
+  <div id="sheet" class="glass" role="dialog" aria-hidden="true">
+    <div style="font-weight:700">Map Layer</div>
+    <div class="segmented" role="tablist">
+      <button data-layer="Standard" class="active" role="tab">Standard</button>
+      <button data-layer="Topo" role="tab">Topo</button>
+      <button data-layer="Satellite" role="tab">Satellite</button>
+    </div>
+
+    <div style="height:6px"></div>
+
+    <div style="font-weight:700">Overlays</div>
+    <div class="option-row">
+      <label><input type="checkbox" data-chip="wind" checked> Wind</label>
+      <div style="font-size:0.85rem;color:var(--muted)">Particles</div>
+    </div>
+    <div class="option-row">
+      <label><input type="checkbox" data-chip="precip" checked> Precipitation</label>
+      <div style="font-size:0.85rem;color:var(--muted)">Show chip</div>
+    </div>
+    <div class="option-row">
+      <label><input type="checkbox" data-chip="humidity" checked> Humidity</label>
+      <div style="font-size:0.85rem;color:var(--muted)">Show chip</div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="glass">Message</div>
+
 <script>
-  feather.replace();
+/* ======== Utility & UI helpers ======== */
+const $ = q => document.querySelector(q);
+const $$ = q => Array.from(document.querySelectorAll(q));
 
-  // ---------------- Map ----------------
-  let map = L.map('map').setView([20.5937, 78.9629], 5); // Default India
+function showToast(msg, ms = 3500){
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timeout);
+  t._timeout = setTimeout(()=> t.classList.remove('show'), ms);
+}
 
-  const layers = {
-    "Standard": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '' }).addTo(map),
-    "Topo": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: '' }),
-    "Satellite": L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', { attribution: '' })
-  };
+/* ======== Leaflet map & layers ======== */
+const map = L.map('map', { zoomControl:true, attributionControl:false }).setView([20.5937,78.9629],5);
 
-  // ---------------- Geolocation ----------------
-  const locationStatus = document.getElementById('location-status');
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude;
-      map.setView([lat, lon], 10);
-      locationStatus.textContent = `Lat: ${lat.toFixed(2)}, Lon: ${lon.toFixed(2)}`;
-      fetchWeather(lat, lon);
-    },
-    (err) => {
-      showToast("Geolocation unavailable. Using default location.");
-      locationStatus.textContent = "India";
-      fetchWeather(20.5937, 78.9629);
+const baseLayers = {
+  "Standard": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }),
+  "Topo": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17 }),
+  "Satellite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 })
+};
+baseLayers.Standard.addTo(map);
+
+/* ---------- Wire segmented buttons ---------- */
+$$('#sheet .segmented button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    $$('#sheet .segmented button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const name = btn.dataset.layer;
+    Object.values(baseLayers).forEach(l=> map.removeLayer(l));
+    baseLayers[name].addTo(map);
+  });
+});
+
+/* ======== Chips references ======== */
+const chipWind = $('#chip-wind');
+const chipPrecip = $('#chip-precip');
+const chipHumidity = $('#chip-humidity');
+const windValue = $('#wind-value');
+const precipValue = $('#precip-value');
+const humidityValue = $('#humidity-value');
+const locationStatus = $('#location-status');
+
+/* ======== Sheet toggle (FAB) ======== */
+const fab = $('#fab'), sheet = $('#sheet');
+fab.addEventListener('click', ()=>{
+  const showing = sheet.classList.toggle('show');
+  sheet.setAttribute('aria-hidden', !showing);
+});
+
+/* ======== Checkbox toggles for chips & wind particles ======== */
+$$('#sheet input[type="checkbox"]').forEach(cb=>{
+  const chipId = cb.dataset.chip;
+  cb.addEventListener('change', e=>{
+    const el = document.getElementById('chip-'+chipId);
+    if (el) el.style.display = cb.checked ? 'flex' : 'none';
+    // Wind particles handled separately via particle engine flag:
+    if (chipId === 'wind') {
+      windEngine.enabled = cb.checked;
     }
-  );
+  });
+});
 
-  // ---------------- Weather ----------------
-  async function fetchWeather(lat, lon) {
-    try {
-      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
-      const data = await res.json();
-      const weather = data.current_weather;
-      document.getElementById('wind').innerHTML = `<i data-feather="wind"></i> Wind: ${weather.windspeed} km/h`;
-      document.getElementById('precip').innerHTML = `<i data-feather="cloud-rain"></i> Precipitation: ${weather.precipitation || 0} mm`;
-      document.getElementById('humidity').innerHTML = `<i data-feather="droplet"></i> Humidity: ${weather.humidity || '--'}%`;
-      feather.replace();
-    } catch(e) {
-      showToast("Failed to fetch weather data.");
+/* ======== Toast initial (if geolocation not available) ======== */
+if (!navigator.geolocation) showToast('Geolocation not supported — using default location.');
+
+/* ======== Wind particle engine (canvas) ======== */
+const windCanvas = document.getElementById('wind-canvas');
+const ctx = windCanvas.getContext('2d');
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+
+function resizeCanvas(){
+  const rect = windCanvas.getBoundingClientRect();
+  windCanvas.width = Math.round(rect.width * DPR);
+  windCanvas.height = Math.round(rect.height * DPR);
+  windCanvas.style.width = rect.width + 'px';
+  windCanvas.style.height = rect.height + 'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', ()=>{ resizeCanvas(); });
+
+const windEngine = {
+  particles: [],
+  count: 140,
+  windSpeed: 0, // km/h
+  windDir: 0,   // degrees, meteorological (wind from)
+  enabled: true,
+  spawn(){
+    // create or adjust count
+    const target = Math.min(240, Math.max(36, Math.round(this.count * (0.75 + Math.min(6,this.windSpeed)/12))));
+    while(this.particles.length < target){
+      this.particles.push(this._createOne());
+    }
+    while(this.particles.length > target) this.particles.pop();
+  },
+  _createOne(){
+    const x = Math.random()*innerWidth;
+    const y = Math.random()*innerHeight;
+    const life = 3 + Math.random()*4;
+    const speed = 10 + Math.random()*60;
+    return {x,y,vx:0,vy:0,age:0,life,speed,alpha:0};
+  },
+  step(dt){
+    if(!this.enabled) { ctx.clearRect(0,0,innerWidth,innerHeight); return; }
+    // convert windSpeed (km/h) -> px/sec (approx): 1 km/h ≈ 0.27778 m/s. Pixel scale approx ~0.5 m/pixel depends on zoom; we choose mapping empirically:
+    const ws = this.windSpeed;
+    const speedFactor = Math.max(0.1, ws/6); // scale
+    const rad = (270 - this.windDir) * Math.PI/180; // convert 'from' to screen direction (wind blows towards)
+    const wx = Math.cos(rad) * speedFactor * 60;
+    const wy = Math.sin(rad) * speedFactor * 60;
+
+    ctx.clearRect(0,0,innerWidth,innerHeight);
+    ctx.globalCompositeOperation = 'lighter';
+    for (let p of this.particles){
+      p.vx += (wx - p.vx) * 0.02 * (0.5 + Math.random()*0.8);
+      p.vy += (wy - p.vy) * 0.02 * (0.5 + Math.random()*0.8);
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.age += dt/1000;
+      p.alpha = Math.min(1, p.age / 0.9);
+
+      // wrap
+      if (p.x < -30) p.x = innerWidth + 30;
+      if (p.x > innerWidth + 30) p.x = -30;
+      if (p.y < -30) p.y = innerHeight + 30;
+      if (p.y > innerHeight + 30) p.y = -30;
+
+      // draw streak
+      const len = Math.min(24, 4 + Math.abs(p.vx)+Math.abs(p.vy));
+      ctx.beginPath();
+      ctx.moveTo(p.x - p.vx*0.02, p.y - p.vy*0.02);
+      ctx.lineTo(p.x - p.vx*0.02 - (p.vx*0.02) * len, p.y - p.vy*0.02 - (p.vy*0.02)*len);
+      ctx.strokeStyle = `rgba(255,255,255,${0.025 * p.alpha})`;
+      ctx.lineWidth = 2 * Math.min(2.2, 0.6 + ws/20);
+      ctx.stroke();
+
+      // bright head
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, Math.max(0.6, Math.min(2.8, ws/18)), 0, Math.PI*2);
+      ctx.fillStyle = `rgba(255,255,255,${0.10 * p.alpha})`;
+      ctx.fill();
     }
   }
+};
 
-  // ---------------- FAB & Sheet ----------------
-  const fab = document.getElementById('fab');
-  const sheet = document.getElementById('sheet');
-  fab.addEventListener('click', () => sheet.classList.toggle('show'));
+let lastTick = performance.now();
+function animate(){
+  const now = performance.now();
+  const dt = Math.min(60, now - lastTick);
+  lastTick = now;
+  windEngine.spawn();
+  windEngine.step(dt);
+  requestAnimationFrame(animate);
+}
+resizeCanvas();
+animate();
 
-  // ---------------- Segmented buttons ----------------
-  sheet.querySelectorAll('.segmented button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      sheet.querySelectorAll('.segmented button').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const layerName = btn.dataset.layer;
-      Object.values(layers).forEach(l => map.removeLayer(l));
-      layers[layerName].addTo(map);
-    });
-  });
+/* ======== Weather fetching ======== */
+/*
+ Open-Meteo: https://open-meteo.com/
+ We'll request:
+  - current_weather=true
+  - hourly=relativehumidity_2m,precipitation
+  - timezone=auto (so hourly timestamps align)
+*/
+async function fetchWeather(lat, lon){
+  try {
+    const url = new URL("https://api.open-meteo.com/v1/forecast");
+    url.searchParams.set('latitude', lat);
+    url.searchParams.set('longitude', lon);
+    url.searchParams.set('current_weather', 'true');
+    url.searchParams.set('hourly', 'relativehumidity_2m,precipitation');
+    url.searchParams.set('timezone', 'auto');
 
-  // ---------------- Checkboxes ----------------
-  sheet.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-    cb.addEventListener('change', () => {
-      const chip = document.getElementById(cb.dataset.chip);
-      chip.style.display = cb.checked ? 'flex' : 'none';
-    });
-  });
+    const res = await fetch(url.toString(), {cache:'no-store'});
+    if(!res.ok) throw new Error('Weather API error');
+    const json = await res.json();
 
-  // ---------------- Toast ----------------
-  const toast = document.getElementById('toast');
-  function showToast(msg) {
-    toast.textContent = msg;
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 3000);
+    // current weather
+    const cw = json.current_weather || {};
+    const ws = cw.windspeed ?? 0; // km/h
+    const wd = cw.winddirection ?? 0; // deg
+
+    // find nearest hour index in hourly.time
+    let rh = '--', prec = '--';
+    if (json.hourly && Array.isArray(json.hourly.time)){
+      const times = json.hourly.time;
+      const nowISO = new Date().toISOString().slice(0,13); // YYYY-MM-DDTHH
+      // find index where time startsWith nowISO (most servers return full timestamp with minute)
+      let idx = times.findIndex(t => t.startsWith(nowISO));
+      if (idx === -1){
+        // fallback to nearest by difference
+        const nowMs = Date.now();
+        idx = times.reduce((best,i,j)=> {
+          const diff = Math.abs(new Date(i).getTime() - nowMs);
+          const bestDiff = Math.abs(new Date(times[best]).getTime() - nowMs);
+          return diff < bestDiff ? j : best;
+        }, 0);
+      }
+      if (idx >= 0){
+        rh = json.hourly.relativehumidity_2m?.[idx] ?? '--';
+        prec = json.hourly.precipitation?.[idx] ?? '--';
+      }
+    }
+
+    // Update UI
+    windValue.textContent = `${Math.round(ws)} km/h • ${Math.round(wd)}°`;
+    precipValue.textContent = `${prec === '--' ? '--' : (Math.round(prec*10)/10) } mm`;
+    humidityValue.textContent = `${rh === '--' ? '--' : Math.round(rh)}%`;
+
+    // update wind engine
+    windEngine.windSpeed = ws;
+    windEngine.windDir = wd;
+    // increase particle count slightly with wind
+    windEngine.count = 80 + Math.min(220, Math.round(ws*6));
+    windEngine.spawn();
+
+  } catch (err){
+    console.error(err);
+    showToast('Failed to fetch weather.');
   }
+}
+
+/* ======== Geolocation logic ======== */
+function setViewAndFetch(lat, lon, label){
+  map.setView([lat, lon], 10, {animate:true});
+  if (label) locationStatus.textContent = label;
+  else locationStatus.textContent = `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+  fetchWeather(lat, lon);
+}
+
+if (navigator.geolocation){
+  navigator.geolocation.getCurrentPosition(pos=>{
+    setViewAndFetch(pos.coords.latitude, pos.coords.longitude, 'Your location');
+  }, err=>{
+    showToast('Geolocation unavailable — using default (India).');
+    setViewAndFetch(20.5937, 78.9629, 'India (default)');
+  }, {timeout:8000});
+} else {
+  setViewAndFetch(20.5937, 78.9629, 'India (default)');
+}
+
+/* ======== Map click: place a marker & fetch weather for clicked point ======== */
+let clickMarker = null;
+map.on('click', async (e) => {
+  if (clickMarker) map.removeLayer(clickMarker);
+  clickMarker = L.marker(e.latlng).addTo(map);
+  setViewAndFetch(e.latlng.lat, e.latlng.lng, `Lat ${e.latlng.lat.toFixed(2)}, Lon ${e.latlng.lng.toFixed(2)}`);
+});
+
+/* ======== Small accessibility & finishing touches ======== */
+window.addEventListener('load', ()=> {
+  // ensure feather icons if any (we used inline svgs)
+  // adjust initial chip visibility from sheet controls
+  $$('[data-chip]').forEach(cb=>{
+    const id = cb.dataset.chip;
+    const el = document.getElementById('chip-'+id);
+    if (el) el.style.display = cb.checked ? 'flex' : 'none';
+  });
+});
 </script>
 </body>
 </html>
