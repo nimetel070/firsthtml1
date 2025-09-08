@@ -1,176 +1,540 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Apple-Style Weather UI</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Apple-style Weather — Refined</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
   <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      width: 100%;
+    /* Basic reset */
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;width:100%}
+    body{
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: linear-gradient(135deg,#0f1724 0%, #172033 60%);
+      color: #fff;
       overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: linear-gradient(135deg, #1e1e2f, #2a2a40);
-      color: white;
     }
+
+    /* Map fills screen */
     #map {
-      height: 100%;
-      width: 100%;
-      z-index: 1;
+      position: absolute;
+      inset: 0;
+      z-index: 0;
     }
-    /* Hamburger button */
+
+    /* Ambient particle canvas sits above the map */
+    #ambientParticles {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      display: block;
+    }
+
+    /* Floating UI layer */
+    .ui {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none; /* allow clicks to pass except on interactive children */
+    }
+
+    /* Toast message (small) */
+    .toast {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 22px;
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 999px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+      font-size: 13px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .28s ease, transform .28s ease;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+
+    /* Hamburger button (bottom-left) */
     .hamburger {
       position: absolute;
-      bottom: 20px;
-      left: 20px;
-      width: 40px;
-      height: 30px;
+      left: 18px;
+      bottom: 18px;
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(10px);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.45);
       cursor: pointer;
-      z-index: 1000;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
+      pointer-events: auto;
+      transition: transform .14s ease;
     }
-    .hamburger span {
-      display: block;
-      height: 4px;
-      background: rgba(255,255,255,0.9);
-      border-radius: 2px;
-      transition: 0.3s;
+    .hamburger:active { transform: scale(.98); }
+
+    .hamburger .lines {
+      width: 26px;
+      height: 16px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
     }
+    .hamburger .lines span {
+      display:block;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.95), rgba(255,255,255,0.75));
+      border-radius:2px;
+      transition: transform .25s cubic-bezier(.2,.9,.2,1), opacity .18s;
+    }
+    .hamburger.open .lines span:nth-child(1){ transform: translateY(7px) rotate(45deg); }
+    .hamburger.open .lines span:nth-child(2){ opacity:0; transform: scaleX(.6); }
+    .hamburger.open .lines span:nth-child(3){ transform: translateY(-7px) rotate(-45deg); }
+
     /* Menu panel */
     .menu {
       position: absolute;
-      bottom: 70px;
-      left: 20px;
-      background: rgba(255,255,255,0.1);
-      backdrop-filter: blur(15px);
-      border-radius: 16px;
+      left: 18px;
+      bottom: 86px;
+      width: min(92vw, 340px);
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(14px) saturate(140%);
+      border-radius: 14px;
       padding: 12px;
-      display: none;
+      pointer-events: auto;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+      transform: translateY(8px);
+      opacity: 0;
+      transition: opacity .24s ease, transform .24s cubic-bezier(.2,.9,.2,1);
+      display: flex;
       flex-direction: column;
-      gap: 8px;
-      z-index: 1000;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+      gap: 10px;
+      z-index: 4;
+    }
+    .menu.open { opacity: 1; transform: translateY(0); }
+
+    .menu h4 {
+      font-size: 14px;
+      margin-bottom: 6px;
+      color: rgba(255,255,255,0.95);
+      pointer-events: none;
+    }
+
+    .option-row {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      padding: 8px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.02);
+    }
+    .option-row label { font-size: 14px; color: #fff; }
+
+    /* Toggle checkbox look (simple) */
+    .switch {
+      width: 42px; height: 24px; border-radius: 20px;
+      background: rgba(255,255,255,0.18);
+      padding: 3px;
+      display:flex; align-items:center;
+    }
+    .switch input { width:100%; height:100%; appearance:none; position:relative; border-radius:999px; background:transparent; cursor:pointer; }
+    .switch input::after {
+      content:''; width:18px; height:18px; background:#fff; border-radius:50%;
+      display:block; transform: translateX(0); transition: transform .18s cubic-bezier(.2,.9,.2,1);
+    }
+    .switch input:checked::after { transform: translateX(18px); }
+
+    /* Small chips at top-right (for values) */
+    .chips {
+      position: absolute;
+      right: 18px;
+      top: 18px;
+      display:flex;
+      gap:10px;
+      z-index:4;
+      pointer-events: auto;
     }
     .chip {
-      padding: 6px 12px;
-      border-radius: 12px;
-      background: rgba(255,255,255,0.2);
-      cursor: pointer;
-      transition: background 0.3s;
+      background: rgba(255,255,255,0.06);
+      padding: 8px 12px;
+      border-radius: 999px;
+      backdrop-filter: blur(10px);
+      font-weight:600;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+      color: #fff;
     }
-    .chip:hover {
-      background: rgba(255,255,255,0.35);
-    }
-    /* Ambient particles canvas */
-    #ambientParticles {
-      position:absolute;
-      top:0;
-      left:0;
-      width:100%;
-      height:100%;
-      pointer-events:none;
-      z-index:2;
+
+    /* Small responsive tweaks */
+    @media (max-width:420px){
+      .hamburger { width:50px; height:50px; left:12px; bottom:12px; border-radius:12px;}
+      .menu { left:12px; bottom:72px; width: calc(100vw - 24px); }
+      .chips { right:12px; top:12px; }
     }
   </style>
 </head>
 <body>
-  <div id="map"></div>
-  
-  <!-- Ambient Particles -->
-  <canvas id="ambientParticles"></canvas>
-  
-  <!-- Hamburger Menu -->
-  <div class="hamburger" id="hamburger">
-    <span></span>
-    <span></span>
-    <span></span>
+  <!-- Map -->
+  <div id="map" aria-label="Map container"></div>
+
+  <!-- Ambient particles canvas -->
+  <canvas id="ambientParticles" aria-hidden="true"></canvas>
+
+  <!-- Floating UI layer -->
+  <div class="ui" aria-hidden="false">
+    <!-- Value chips -->
+    <div class="chips" id="chipsContainer" aria-hidden="false"></div>
+
+    <!-- Hamburger -->
+    <button class="hamburger" id="hamburgerBtn" aria-expanded="false" aria-label="Open view options">
+      <span class="lines" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </span>
+    </button>
+
+    <!-- Menu -->
+    <div class="menu" id="menuPanel" role="dialog" aria-label="View options">
+      <h4>View options</h4>
+
+      <div class="option-row">
+        <label for="toggleWind">Wind</label>
+        <div class="switch"><input id="toggleWind" type="checkbox" checked/></div>
+      </div>
+
+      <div class="option-row">
+        <label for="togglePrecip">Precipitation</label>
+        <div class="switch"><input id="togglePrecip" type="checkbox" checked/></div>
+      </div>
+
+      <div class="option-row">
+        <label for="toggleHumidity">Humidity</label>
+        <div class="switch"><input id="toggleHumidity" type="checkbox" checked/></div>
+      </div>
+    </div>
+
+    <!-- toast -->
+    <div class="toast" id="toast">Example toast</div>
   </div>
-  <div class="menu" id="menu">
-    <div class="chip">Wind</div>
-    <div class="chip">Precipitation</div>
-    <div class="chip">Humidity</div>
-  </div>
-  
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <script>
-    /* Initialize map */
-    const map = L.map('map').setView([0, 0], 13);
+  (function(){
+    // Helpers
+    const toastEl = document.getElementById('toast');
+    let toastTimer = null;
+    function showToast(msg, time=2800){
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(()=> toastEl.classList.remove('show'), time);
+    }
+
+    // Map init
+    const defaultCoords = { lat: 20.5937, lon: 78.9629 }; // India fallback
+    const map = L.map('map', { zoomControl: true }).setView([defaultCoords.lat, defaultCoords.lon], 5);
+
+    // Tile layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    /* Get location */
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(pos => {
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
-        map.setView([lat, lon], 13);
-        L.marker([lat, lon]).addTo(map).bindPopup("You are here").openPopup();
-      });
+    // Marker holder (so we can remove/replace)
+    let userMarker = null;
+
+    // Chips UI
+    const chipsContainer = document.getElementById('chipsContainer');
+    function renderChips(values = {}) {
+      chipsContainer.innerHTML = '';
+      if (values.wind !== undefined) {
+        const c = document.createElement('div');
+        c.className = 'chip';
+        c.textContent = `Wind: ${values.wind === null ? '—' : Math.round(values.wind) + ' km/h'}`;
+        chipsContainer.appendChild(c);
+      }
+      if (values.precip !== undefined) {
+        const c = document.createElement('div');
+        c.className = 'chip';
+        c.textContent = `Precip: ${values.precip === null ? '—' : values.precip + ' mm'}`;
+        chipsContainer.appendChild(c);
+      }
+      if (values.humidity !== undefined) {
+        const c = document.createElement('div');
+        c.className = 'chip';
+        c.textContent = `Humidity: ${values.humidity === null ? '—' : values.humidity + '%'}`;
+        chipsContainer.appendChild(c);
+      }
     }
 
-    /* Hamburger toggle */
-    const hamburger = document.getElementById("hamburger");
-    const menu = document.getElementById("menu");
-    hamburger.addEventListener("click", () => {
-      menu.style.display = menu.style.display === "flex" ? "none" : "flex";
-    });
+    // Ambient particles (retina/crisp)
+    const ambientCanvas = document.getElementById('ambientParticles');
+    const aCtx = ambientCanvas.getContext('2d');
+    let particles = [];
+    const PARTICLE_COUNT = 120;
 
-    /* Ambient particles */
-    const ambientCanvas = document.getElementById("ambientParticles");
-    const ambientCtx = ambientCanvas.getContext("2d");
-    function resizeAmbientCanvas() {
-      ambientCanvas.width = window.innerWidth;
-      ambientCanvas.height = window.innerHeight;
+    function setCanvasSize() {
+      const rect = document.getElementById('map').getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const w = Math.max(1, Math.floor(rect.width));
+      const h = Math.max(1, Math.floor(rect.height));
+      ambientCanvas.style.width = w + 'px';
+      ambientCanvas.style.height = h + 'px';
+      ambientCanvas.width = Math.floor(w * dpr);
+      ambientCanvas.height = Math.floor(h * dpr);
+      aCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
-    window.addEventListener("resize", resizeAmbientCanvas);
-    resizeAmbientCanvas();
 
-    class AmbientParticle {
-      constructor() { this.reset(); }
-      reset() {
-        this.x = Math.random() * ambientCanvas.width;
-        this.y = Math.random() * ambientCanvas.height;
-        this.size = Math.random() * 2 + 1;
-        this.speedX = (Math.random() - 0.5) * 0.2;
-        this.speedY = (Math.random() - 0.5) * 0.2;
-        this.alpha = 0;
-        this.fadeIn = true;
+    class Particle {
+      constructor() { this.reset(true); }
+      reset(init=false) {
+        const rect = document.getElementById('map').getBoundingClientRect();
+        this.x = Math.random() * rect.width;
+        this.y = Math.random() * rect.height;
+        this.r = Math.random() * 1.8 + 0.6;
+        this.vx = (Math.random() - 0.5) * 0.18;
+        this.vy = (Math.random() - 0.5) * 0.18;
+        this.alpha = init ? Math.random() * 0.6 : 0;
+        this.fadeIn = init ? Math.random() > 0.5 : true;
       }
       update() {
-        this.x += this.speedX;
-        this.y += this.speedY;
+        this.x += this.vx;
+        this.y += this.vy;
         if (this.fadeIn) {
-          this.alpha += 0.01;
-          if (this.alpha >= 0.8) this.fadeIn = false;
+          this.alpha += 0.008;
+          if (this.alpha >= 0.75) this.fadeIn = false;
         } else {
-          this.alpha -= 0.005;
+          this.alpha -= 0.004;
           if (this.alpha <= 0) this.reset();
         }
-        if (this.x < 0) this.x = ambientCanvas.width;
-        if (this.x > ambientCanvas.width) this.x = 0;
-        if (this.y < 0) this.y = ambientCanvas.height;
-        if (this.y > ambientCanvas.height) this.y = 0;
+        const rect = document.getElementById('map').getBoundingClientRect();
+        if (this.x < -10) this.x = rect.width + 10;
+        if (this.x > rect.width + 10) this.x = -10;
+        if (this.y < -10) this.y = rect.height + 10;
+        if (this.y > rect.height + 10) this.y = -10;
       }
-      draw() {
-        ambientCtx.beginPath();
-        ambientCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ambientCtx.fillStyle = `rgba(255,255,255,${this.alpha})`;
-        ambientCtx.fill();
+      draw(ctx) {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${this.alpha})`;
+        ctx.fill();
       }
     }
-    const ambientParticles = Array.from({ length: 120 }, () => new AmbientParticle());
-    function animateAmbientParticles() {
-      ambientCtx.clearRect(0, 0, ambientCanvas.width, ambientCanvas.height);
-      ambientParticles.forEach(p => { p.update(); p.draw(); });
-      requestAnimationFrame(animateAmbientParticles);
+
+    function initParticles() {
+      setCanvasSize();
+      particles = Array.from({length:PARTICLE_COUNT}, () => new Particle());
     }
-    animateAmbientParticles();
+
+    function animateParticles() {
+      aCtx.clearRect(0,0,ambientCanvas.width, ambientCanvas.height);
+      // use untransformed size for loops (dpr accounted by setTransform)
+      const rect = document.getElementById('map').getBoundingClientRect();
+      aCtx.save();
+      // draw
+      for (let p of particles) {
+        p.update();
+        p.draw(aCtx);
+      }
+      aCtx.restore();
+      requestAnimationFrame(animateParticles);
+    }
+
+    // Start particles after sizing
+    function startAmbient() {
+      initParticles();
+      requestAnimationFrame(animateParticles);
+    }
+
+    // Responsive handling
+    window.addEventListener('resize', () => {
+      setCanvasSize();
+      // reposition particles within new rect
+      const rect = document.getElementById('map').getBoundingClientRect();
+      for (let p of particles) {
+        if (p.x > rect.width) p.x = Math.random() * rect.width;
+        if (p.y > rect.height) p.y = Math.random() * rect.height;
+      }
+    });
+
+    // Menu interactions
+    const ham = document.getElementById('hamburgerBtn');
+    const menu = document.getElementById('menuPanel');
+    ham.addEventListener('click', () => {
+      const open = menu.classList.toggle('open');
+      ham.classList.toggle('open', open);
+      ham.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    // Toggle switches (UI control - do nothing heavy here)
+    const toggleWind = document.getElementById('toggleWind');
+    const togglePrecip = document.getElementById('togglePrecip');
+    const toggleHumidity = document.getElementById('toggleHumidity');
+
+    // Default latest values container
+    let latestValues = { wind: null, precip: null, humidity: null, wind_direction: null };
+
+    // Fetch weather (Open-Meteo)
+    async function fetchWeather(lat, lon) {
+      try {
+        const url = new URL('https://api.open-meteo.com/v1/forecast');
+        url.searchParams.set('latitude', lat);
+        url.searchParams.set('longitude', lon);
+        url.searchParams.set('current_weather', 'true');
+        // Open-Meteo current_weather has windspeed and winddirection, but for humidity/precip we ask current params
+        // Use the non-current "current" fields alternative if necessary; we'll attempt to read both patterns:
+        url.searchParams.set('hourly', 'relativehumidity_2m,precipitation');
+        url.searchParams.set('timezone', 'auto');
+
+        const res = await fetch(url.toString());
+        const d = await res.json();
+        // Prefer d.current_weather if present
+        if (d.current_weather) {
+          latestValues.wind = d.current_weather.windspeed ?? latestValues.wind;
+          latestValues.wind_direction = d.current_weather.winddirection ?? latestValues.wind_direction;
+        }
+        // Try to glean hourly latest values (approx)
+        if (d.hourly && d.hourly.time && d.hourly.relativehumidity_2m) {
+          // pick the last entry
+          const lastIndex = d.hourly.time.length - 1;
+          latestValues.humidity = d.hourly.relativehumidity_2m[lastIndex] ?? latestValues.humidity;
+          latestValues.precip = d.hourly.precipitation[lastIndex] ?? latestValues.precip;
+        }
+        renderChips(latestValues);
+
+        // (we are not showing wind-driven particles anymore; ambient only)
+        // But we can show a short toast if wind is strong:
+        if (typeof latestValues.wind === 'number' && latestValues.wind > 30) {
+          showToast('High winds — be careful outdoors');
+        }
+      } catch (err) {
+        console.warn('weather fetch failed', err);
+        showToast('Could not fetch live weather');
+      }
+    }
+
+    // Show user location on the map
+    function showUserOnMap(lat, lon, accuracy) {
+      if (userMarker) {
+        map.removeLayer(userMarker);
+        userMarker = null;
+      }
+      userMarker = L.marker([lat, lon]).addTo(map).bindPopup('Your location').openPopup();
+      // circle for accuracy (optional)
+      if (accuracy && typeof accuracy === 'number') {
+        L.circle([lat, lon], { radius: Math.max(20, accuracy), color: '#66b2ff', weight: 1, fillOpacity: 0.06 }).addTo(map);
+      }
+    }
+
+    // Locate user
+    function locateUserAndLoad() {
+      if (!navigator.geolocation) {
+        showToast('Geolocation not available — using fallback');
+        // keep default map center
+        setTimeout(() => {
+          setCanvasSize();
+          startAmbient();
+          fetchWeather(defaultCoords.lat, defaultCoords.lon);
+        }, 300);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition((pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        const acc = pos.coords.accuracy;
+        map.setView([lat, lon], 13, { animate: true });
+        showUserOnMap(lat, lon, acc);
+
+        // initialize canvas sizing AFTER map settles visually
+        setTimeout(() => {
+          setCanvasSize();
+          startAmbient();
+        }, 120);
+
+        // fetch weather once
+        fetchWeather(lat, lon);
+
+      }, (err) => {
+        console.warn('geolocation err', err);
+        showToast('Location denied or unavailable — using fallback');
+        // fallback
+        map.setView([defaultCoords.lat, defaultCoords.lon], 5);
+        setTimeout(() => {
+          setCanvasSize();
+          startAmbient();
+          fetchWeather(defaultCoords.lat, defaultCoords.lon);
+        }, 120);
+      }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 12000 });
+    }
+
+    // Render chips function
+    function renderChips(vals) {
+      const current = {
+        wind: toggleWind.checked ? (vals.wind ?? null) : undefined,
+        precip: togglePrecip.checked ? (vals.precip ?? null) : undefined,
+        humidity: toggleHumidity.checked ? (vals.humidity ?? null) : undefined
+      };
+      renderChipsUI(current);
+    }
+    function renderChipsUI(values) {
+      const out = {};
+      if (values.wind !== undefined) out.wind = values.wind;
+      if (values.precip !== undefined) out.precip = values.precip;
+      if (values.humidity !== undefined) out.humidity = values.humidity;
+      renderChips(out);
+    }
+    function renderChips(obj) {
+      // keep simple: call earlier defined renderChips (closure)
+      // We'll reuse the top-level UI function from before:
+      chipsContainer.innerHTML = '';
+      if ('wind' in obj) {
+        const el = document.createElement('div'); el.className = 'chip';
+        el.textContent = obj.wind === null ? 'Wind: —' : `Wind: ${Math.round(obj.wind)} km/h`;
+        chipsContainer.appendChild(el);
+      }
+      if ('precip' in obj) {
+        const el = document.createElement('div'); el.className = 'chip';
+        el.textContent = obj.precip === null ? 'Precip: —' : `Precip: ${obj.precip} mm`;
+        chipsContainer.appendChild(el);
+      }
+      if ('humidity' in obj) {
+        const el = document.createElement('div'); el.className = 'chip';
+        el.textContent = obj.humidity === null ? 'Humidity: —' : `Humidity: ${Math.round(obj.humidity)}%`;
+        chipsContainer.appendChild(el);
+      }
+    }
+
+    // Toggle handlers: update chips immediately when toggles change
+    toggleWind.addEventListener('change', () => renderChips(latestValues));
+    togglePrecip.addEventListener('change', () => renderChips(latestValues));
+    toggleHumidity.addEventListener('change', () => renderChips(latestValues));
+
+    // Kick everything off
+    locateUserAndLoad();
+
+    // Ensure canvas resizes if map container changes size (Leaflet may change after window resize)
+    map.on('resize', () => { setCanvasSize(); });
+    // Also if user drags map, optionally fetch new weather for center (debounced)
+    let dragTimeout = null;
+    map.on('moveend', () => {
+      clearTimeout(dragTimeout);
+      dragTimeout = setTimeout(() => {
+        const c = map.getCenter();
+        fetchWeather(c.lat, c.lng);
+      }, 600);
+    });
+
+  })();
   </script>
 </body>
 </html>
