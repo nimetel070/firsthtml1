@@ -96,7 +96,10 @@
         }
 
         /* Album art animation */
-        .album-art.playing {
+        .album-art-container {
+            transition: transform 0.5s ease-in-out;
+        }
+        .album-art-container.playing .album-art-image {
             animation: rotateArt 20s linear infinite;
         }
         
@@ -109,22 +112,22 @@
 </head>
 <body class="bg-gray-900 text-white flex items-center justify-center min-h-screen p-4">
 
-    <!-- Audio element (hidden) to control playback. No src needed for UI demo. -->
+    <!-- Audio element (hidden) to control playback. -->
     <audio id="audioPlayer"></audio>
 
     <!-- Music Player Card -->
     <div class="glass-card w-full max-w-sm rounded-3xl p-6 md:p-8 space-y-6">
         
         <!-- Album Art -->
-        <div class="aspect-square rounded-2xl overflow-hidden shadow-lg">
+        <div id="albumArtContainer" class="album-art-container aspect-square rounded-2xl overflow-hidden shadow-lg">
             <img id="albumArt" src="https://placehold.co/400x400/1e293b/94a3b8?text=Music" 
-                 alt="Album Art" class="w-full h-full object-cover transition-transform duration-500 transform">
+                 alt="Album Art" class="album-art-image w-full h-full object-cover">
         </div>
 
         <!-- Track Information -->
         <div class="text-center">
-            <h1 id="songTitle" class="text-2xl font-bold">Song Title</h1>
-            <p id="artistName" class="text-md font-light text-gray-300">Artist Name</p>
+            <h1 id="songTitle" class="text-2xl font-bold truncate">Song Title</h1>
+            <p id="artistName" class="text-md font-light text-gray-300 truncate">Artist Name</p>
         </div>
 
         <!-- Progress Bar & Timestamps -->
@@ -134,14 +137,14 @@
             </div>
             <div class="flex justify-between text-xs font-light text-gray-300">
                 <span id="currentTime">0:00</span>
-                <span id="totalDuration">3:45</span>
+                <span id="totalDuration">0:00</span>
             </div>
         </div>
         
         <!-- Player Controls -->
         <div class="flex items-center justify-center space-x-6">
             <!-- Previous Button -->
-            <button class="p-2 transition-transform hover:scale-110">
+            <button id="prevBtn" class="p-2 transition-transform hover:scale-110">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 19 2 12 11 5 11 19"></polygon><polygon points="22 19 13 12 22 5 22 19"></polygon></svg>
             </button>
             
@@ -156,11 +159,10 @@
             </button>
 
             <!-- Next Button -->
-            <button class="p-2 transition-transform hover:scale-110">
+            <button id="nextBtn" class="p-2 transition-transform hover:scale-110">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 19 22 12 13 5 13 19"></polygon><polygon points="2 19 11 12 2 5 2 19"></polygon></svg>
             </button>
         </div>
-
     </div>
 
     <script>
@@ -170,19 +172,92 @@
             const playPauseBtn = document.getElementById('playPauseBtn');
             const playIcon = document.getElementById('playIcon');
             const pauseIcon = document.getElementById('pauseIcon');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
             const progressSlider = document.getElementById('progressSlider');
             const currentTimeEl = document.getElementById('currentTime');
             const totalDurationEl = document.getElementById('totalDuration');
+            const albumArtContainer = document.getElementById('albumArtContainer');
             const albumArt = document.getElementById('albumArt');
+            const songTitleEl = document.getElementById('songTitle');
+            const artistNameEl = document.getElementById('artistName');
+
+            // --- Playlist ---
+            // IMPORTANT: Replace these with your actual file paths
+            const songs = [
+                {
+                    title: 'Lost in the City Lights',
+                    artist: 'Cosmo Sheldrake',
+                    src: 'https://assets.codepen.io/285131/lost-in-city-lights.mp3', // Path to audio file
+                    cover: 'https://assets.codepen.io/285131/lost-in-city-lights.jpeg' // Path to cover art
+                },
+                {
+                    title: 'Forest Lullaby',
+                    artist: 'Lesfm',
+                    src: 'https://assets.codepen.io/285131/forest-lullaby.mp3',
+                    cover: 'https://assets.codepen.io/285131/forest-lullaby.jpeg'
+                }
+            ];
 
             // --- State ---
-            let isPlaying = false;
-            let duration = 225; // Mock duration in seconds (3:45)
-            let currentTime = 0;
-            let intervalId = null;
+            let songIndex = 0;
+
+            // --- Functions ---
+
+            // Load a given song
+            const loadSong = (song) => {
+                songTitleEl.textContent = song.title;
+                artistNameEl.textContent = song.artist;
+                audioPlayer.src = song.src;
+                albumArt.src = song.cover;
+            };
+
+            // Play the current song
+            const playSong = () => {
+                albumArtContainer.classList.add('playing');
+                playIcon.classList.add('hidden');
+                pauseIcon.classList.remove('hidden');
+                audioPlayer.play();
+            };
+
+            // Pause the current song
+            const pauseSong = () => {
+                albumArtContainer.classList.remove('playing');
+                playIcon.classList.remove('hidden');
+                pauseIcon.classList.add('hidden');
+                audioPlayer.pause();
+            };
+
+            // Toggle play/pause
+            const togglePlayPause = () => {
+                const isPlaying = albumArtContainer.classList.contains('playing');
+                if (isPlaying) {
+                    pauseSong();
+                } else {
+                    playSong();
+                }
+            };
             
-            // --- Helper Functions ---
-            
+            // Go to the previous song
+            const prevSong = () => {
+                songIndex--;
+                if (songIndex < 0) {
+                    songIndex = songs.length - 1;
+                }
+                loadSong(songs[songIndex]);
+                playSong();
+            };
+
+            // Go to the next song
+            const nextSong = () => {
+                songIndex++;
+                if (songIndex > songs.length - 1) {
+                    songIndex = 0;
+                }
+                loadSong(songs[songIndex]);
+                playSong();
+            };
+
             // Format time from seconds to MM:SS
             const formatTime = (seconds) => {
                 const minutes = Math.floor(seconds / 60);
@@ -190,84 +265,45 @@
                 return `${minutes}:${secs.toString().padStart(2, '0')}`;
             };
             
-            // Update the UI based on the current time
-            const updateProgress = () => {
-                // Update slider value
+            // Update progress bar and time displays
+            const updateProgress = (e) => {
+                const { duration, currentTime } = e.srcElement;
                 const progressPercent = (currentTime / duration) * 100;
                 progressSlider.value = progressPercent;
-
-                // Update the visual fill of the progress bar
                 progressSlider.parentElement.style.setProperty('--progress-width', `${progressPercent}%`);
 
-                // Update current time text
                 currentTimeEl.textContent = formatTime(currentTime);
             };
 
-            // Start simulating playback
-            const startPlayback = () => {
-                if (intervalId) clearInterval(intervalId); // Clear any existing interval
-                intervalId = setInterval(() => {
-                    currentTime++;
-                    if (currentTime >= duration) {
-                        currentTime = 0; // Loop the track
-                    }
-                    updateProgress();
-                }, 1000);
-            };
-            
-            // Stop simulating playback
-            const stopPlayback = () => {
-                clearInterval(intervalId);
-                intervalId = null;
+            // Set the song duration
+            const setDuration = () => {
+                totalDurationEl.textContent = formatTime(audioPlayer.duration);
             };
 
-            // Toggle play/pause state
-            const togglePlayPause = () => {
-                isPlaying = !isPlaying;
-                if (isPlaying) {
-                    playIcon.classList.add('hidden');
-                    pauseIcon.classList.remove('hidden');
-                    albumArt.classList.add('playing');
-                    startPlayback();
-                } else {
-                    playIcon.classList.remove('hidden');
-                    pauseIcon.classList.add('hidden');
-                    albumArt.classList.remove('playing');
-                    stopPlayback();
-                }
-            };
-            
             // Handle seeking with the progress slider
-            const seek = () => {
-                const newTime = (progressSlider.value / 100) * duration;
-                currentTime = newTime;
-                updateProgress();
+            const setProgress = (e) => {
+                const width = e.target.clientWidth;
+                const clickX = e.offsetX;
+                const duration = audioPlayer.duration;
+                audioPlayer.currentTime = (clickX / width) * duration;
             };
+
 
             // --- Event Listeners ---
             playPauseBtn.addEventListener('click', togglePlayPause);
-            progressSlider.addEventListener('input', seek);
+            prevBtn.addEventListener('click', prevSong);
+            nextBtn.addEventListener('click', nextSong);
             
-            // When user starts dragging, pause time updates to prevent jitter
-            progressSlider.addEventListener('mousedown', () => {
-                if(isPlaying) stopPlayback();
-            });
-
-            // When user releases, restart playback from new position if it was playing
-            progressSlider.addEventListener('mouseup', () => {
-                if(isPlaying) startPlayback();
-            });
+            audioPlayer.addEventListener('timeupdate', updateProgress);
+            audioPlayer.addEventListener('loadedmetadata', setDuration);
+            audioPlayer.addEventListener('ended', nextSong);
             
-            // --- Initial Setup ---
-            const init = () => {
-                totalDurationEl.textContent = formatTime(duration);
-                updateProgress();
-            };
+            progressSlider.addEventListener('click', setProgress);
 
-            init();
+            // --- Initial Load ---
+            loadSong(songs[songIndex]);
         });
     </script>
 
 </body>
 </html>
-
