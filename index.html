@@ -1,409 +1,295 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Glass Weather</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apple-Style Weather</title>
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<!-- Feather Icons -->
+<script src="https://unpkg.com/feather-icons"></script>
+<style>
+  /* ---------------- Fonts ---------------- */
+  body {
+    margin: 0;
+    font-family: -apple-system, "SF Pro Rounded", Segoe UI, Roboto, system-ui, sans-serif;
+    background: radial-gradient(circle at 20% 20%, #dfe8ff, #f5f7ff 40%, #f9fbff 70%, #ffffff);
+    overflow: hidden;
+    height: 100vh;
+  }
 
-    <!-- External Libraries -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="https://unpkg.com/feather-icons"></script>
+  /* ---------------- Floating sheen ---------------- */
+  body::after {
+    content: '';
+    position: absolute;
+    width: 300%;
+    height: 300%;
+    top: -100%;
+    left: -100%;
+    background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 60%);
+    filter: blur(200px);
+    animation: sheen 15s linear infinite;
+    pointer-events: none;
+  }
 
-    <style>
-        /* Base styles and fonts */
-        body {
-            font-family: -apple-system, "SF Pro Rounded", "Segoe UI", Roboto, system-ui, sans-serif;
-            background-color: #f0f4ff;
-            overflow: hidden;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
+  @keyframes sheen {
+    0% { transform: rotate(0deg) translate(0,0);}
+    100% { transform: rotate(360deg) translate(0,0);}
+  }
 
-        /* Background with soft radial gradient and sheen effect */
-        .background-sheen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle at 10% 20%, #f9fbff, transparent 40%),
-                        radial-gradient(circle at 90% 80%, #f5f7ff, transparent 40%),
-                        radial-gradient(circle at 50% 50%, #dfe8ff, #f9fbff 80%);
-            z-index: -1;
-        }
-        
-        .background-sheen::before {
-            content: '';
-            position: absolute;
-            top: -20%;
-            left: -20%;
-            width: 140%;
-            height: 140%;
-            background: radial-gradient(ellipse 50% 40% at 50% 50%, rgba(255, 255, 255, 0.3), transparent);
-            animation: floatSheen 15s infinite ease-in-out;
-            pointer-events: none;
-        }
+  /* ---------------- Glass Panel ---------------- */
+  .glass {
+    background: rgba(255,255,255,0.16);
+    border: 1px solid rgba(255,255,255,0.25);
+    backdrop-filter: blur(20px) saturate(160%);
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    color: #000;
+  }
 
-        /* Sheen animation */
-        @keyframes floatSheen {
-            0%, 100% { transform: translate(0, 0) rotate(0deg); }
-            25% { transform: translate(10px, 20px) rotate(5deg); }
-            50% { transform: translate(-20px, -10px) rotate(-5deg); }
-            75% { transform: translate(15px, -15px) rotate(3deg); }
-        }
-        
-        /* Core liquid glass UI component style */
-        .glass-ui {
-            background-color: rgba(255, 255, 255, 0.18);
-            backdrop-filter: blur(20px) saturate(150%);
-            -webkit-backdrop-filter: blur(20px) saturate(150%);
-            border: 1px solid rgba(255, 255, 255, 0.25);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-        }
+  /* ---------------- Header ---------------- */
+  #header {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 16px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 1000;
+    transition: all 0.3s ease;
+  }
+  #header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: bold;
+  }
+  #header p {
+    margin: 4px 0 0;
+    font-size: 0.9rem;
+    color: rgba(0,0,0,0.6);
+  }
 
-        /* Map container */
-        #map {
-            width: 100vw;
-            height: 100vh;
-            z-index: 1;
-        }
-        .leaflet-control-zoom {
-            border: 1px solid rgba(255, 255, 255, 0.25) !important;
-        }
-        .leaflet-control-zoom a {
-            background-color: rgba(255, 255, 255, 0.2) !important;
-            color: #333 !important;
-        }
+  /* ---------------- Chips ---------------- */
+  .chips {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 1000;
+  }
+  .chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+  }
 
-        /* Header Style */
-        .header-chip {
-            top: 24px;
-            left: 50%;
-            transform: translateX(-50%);
-        }
+  /* ---------------- FAB ---------------- */
+  #fab {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    z-index: 1000;
+    transition: all 0.3s ease;
+  }
 
-        /* FAB and Sheet Styles */
-        .settings-sheet {
-            transform: translateY(120%);
-            opacity: 0;
-            visibility: hidden;
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease, visibility 0.4s;
-        }
-        .settings-sheet.active {
-            transform: translateY(0);
-            opacity: 1;
-            visibility: visible;
-        }
+  /* ---------------- Sheet ---------------- */
+  #sheet {
+    position: fixed;
+    bottom: 90px;
+    left: 20px;
+    width: 260px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s ease;
+    z-index: 1000;
+  }
+  #sheet.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .segmented {
+    display: flex;
+    gap: 4px;
+  }
+  .segmented button {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.14);
+    color: #000;
+    cursor: pointer;
+    transition: 0.3s;
+  }
+  .segmented button.active {
+    background: rgba(255,255,255,0.25);
+    font-weight: bold;
+  }
+  label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+  }
 
-        /* Segmented control for map layers */
-        .segmented-control {
-            display: flex;
-            background-color: rgba(0, 0, 0, 0.08);
-            border-radius: 9999px;
-            padding: 2px;
-        }
-        .segmented-control button {
-            flex: 1;
-            padding: 6px 12px;
-            border-radius: 9999px;
-            background-color: transparent;
-            color: #4b5563;
-            font-size: 14px;
-            font-weight: 500;
-            transition: background-color 0.3s ease, color 0.3s ease;
-            border: none;
-            cursor: pointer;
-        }
-        .segmented-control button.active {
-            background-color: white;
-            color: #1f2937;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
+  /* ---------------- Map ---------------- */
+  #map {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
 
-        /* Checkbox styles */
-        .custom-checkbox {
-            appearance: none;
-            -webkit-appearance: none;
-            height: 20px;
-            width: 20px;
-            background-color: rgba(255, 255, 255, 0.2);
-            border-radius: 6px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            cursor: pointer;
-            display: inline-block;
-            position: relative;
-            transition: all 0.2s ease;
-        }
-        .custom-checkbox:checked {
-            background-color: #60a5fa;
-            border-color: #3b82f6;
-        }
-        .custom-checkbox:checked::after {
-            content: '';
-            position: absolute;
-            left: 6px;
-            top: 2px;
-            width: 5px;
-            height: 10px;
-            border: solid white;
-            border-width: 0 2px 2px 0;
-            transform: rotate(45deg);
-        }
-
-        /* Toast notifications */
-        .toast {
-            bottom: 24px;
-            left: 50%;
-            transform: translate(-50%, 200%);
-            opacity: 0;
-            animation: slide-in-out 4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        @keyframes slide-in-out {
-            0% { transform: translate(-50%, 200%); opacity: 0; }
-            15% { transform: translate(-50%, 0); opacity: 1; }
-            85% { transform: translate(-50%, 0); opacity: 1; }
-            100% { transform: translate(-50%, 200%); opacity: 0; }
-        }
-        
-        /* Weather Chips */
-        .weather-chip {
-            transition: transform 0.3s ease, opacity 0.3s ease;
-            transform: translateX(200%);
-            opacity: 0;
-        }
-        .weather-chip.visible {
-            transform: translateX(0);
-            opacity: 1;
-        }
-    </style>
+  /* ---------------- Toast ---------------- */
+  #toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+    z-index: 1000;
+  }
+  #toast.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+</style>
 </head>
-<body class="text-gray-800">
+<body>
 
-    <div class="background-sheen"></div>
+<!-- Header -->
+<div id="header" class="glass">
+  <h1>Weather App</h1>
+  <p id="location-status">Fetching location...</p>
+</div>
 
-    <!-- Map Container -->
-    <div id="map"></div>
+<!-- Map -->
+<div id="map"></div>
 
-    <!-- Header -->
-    <header id="header" class="header-chip glass-ui fixed z-10 px-4 py-2 rounded-full flex items-center space-x-3">
-        <i data-feather="sun" class="w-5 h-5 text-gray-700"></i>
-        <div>
-            <h1 class="font-bold text-sm text-gray-800 leading-tight">Glass Weather</h1>
-            <p id="location-status" class="text-xs text-gray-600 leading-tight">Finding your location...</p>
-        </div>
-    </header>
+<!-- Chips -->
+<div class="chips" id="chips">
+  <div class="chip glass" id="wind"><i data-feather="wind"></i> Wind: -- km/h</div>
+  <div class="chip glass" id="precip"><i data-feather="cloud-rain"></i> Precipitation: -- mm</div>
+  <div class="chip glass" id="humidity"><i data-feather="droplet"></i> Humidity: --%</div>
+</div>
 
-    <!-- Weather Data Chips -->
-    <div id="weather-chips" class="fixed bottom-24 right-4 md:right-6 z-10 space-y-3">
-        <div id="wind-chip" class="weather-chip glass-ui px-4 py-2 rounded-full flex items-center space-x-2">
-            <i data-feather="wind" class="w-5 h-5 text-gray-700"></i>
-            <span id="wind-value" class="text-sm font-medium">-- km/h</span>
-        </div>
-        <div id="precipitation-chip" class="weather-chip glass-ui px-4 py-2 rounded-full flex items-center space-x-2">
-            <i data-feather="umbrella" class="w-5 h-5 text-gray-700"></i>
-            <span id="precipitation-value" class="text-sm font-medium">-- mm</span>
-        </div>
-        <div id="humidity-chip" class="weather-chip glass-ui px-4 py-2 rounded-full flex items-center space-x-2">
-            <i data-feather="droplet" class="w-5 h-5 text-gray-700"></i>
-            <span id="humidity-value" class="text-sm font-medium">-- %</span>
-        </div>
-    </div>
+<!-- FAB -->
+<div id="fab" class="glass"><i data-feather="settings"></i></div>
 
-    <!-- Floating Action Button (FAB) -->
-    <button id="fab" class="glass-ui fixed bottom-6 left-4 md:left-6 z-20 w-14 h-14 rounded-2xl flex items-center justify-center hover:bg-white/30">
-        <i data-feather="menu" class="w-6 h-6 text-gray-800"></i>
-    </button>
+<!-- Sheet -->
+<div id="sheet" class="glass">
+  <div class="segmented">
+    <button class="active" data-layer="Standard">Standard</button>
+    <button data-layer="Topo">Topo</button>
+    <button data-layer="Satellite">Satellite</button>
+  </div>
+  <label><input type="checkbox" checked data-chip="wind"> Wind</label>
+  <label><input type="checkbox" checked data-chip="precip"> Precipitation</label>
+  <label><input type="checkbox" checked data-chip="humidity"> Humidity</label>
+</div>
 
-    <!-- Settings Sheet -->
-    <div id="settings-sheet" class="settings-sheet fixed bottom-24 left-4 md:left-6 z-10 glass-ui rounded-2xl p-4 w-64">
-        <div class="space-y-4">
-            <div>
-                <h3 class="text-xs font-semibold uppercase text-gray-500 mb-2">Map Layers</h3>
-                <div id="map-layers-control" class="segmented-control">
-                    <button class="active" data-layer="standard">Standard</button>
-                    <button data-layer="topo">Topo</button>
-                    <button data-layer="satellite">Satellite</button>
-                </div>
-            </div>
-            <div>
-                <h3 class="text-xs font-semibold uppercase text-gray-500 mb-2">Data Layers</h3>
-                <div class="space-y-2">
-                    <label class="flex items-center space-x-3 cursor-pointer">
-                        <input type="checkbox" id="toggle-wind" class="custom-checkbox" checked>
-                        <span class="text-sm">Wind</span>
-                    </label>
-                     <label class="flex items-center space-x-3 cursor-pointer">
-                        <input type="checkbox" id="toggle-precipitation" class="custom-checkbox" checked>
-                        <span class="text-sm">Precipitation</span>
-                    </label>
-                     <label class="flex items-center space-x-3 cursor-pointer">
-                        <input type="checkbox" id="toggle-humidity" class="custom-checkbox" checked>
-                        <span class="text-sm">Humidity</span>
-                    </label>
-                </div>
-            </div>
-        </div>
-    </div>
+<!-- Toast -->
+<div id="toast" class="glass">Toast message</div>
 
-    <!-- Toast Notification Container -->
-    <div id="toast-container" class="fixed bottom-0 left-0 w-full z-50 pointer-events-none"></div>
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+  feather.replace();
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // --- UI ELEMENT REFERENCES ---
-            const fab = document.getElementById('fab');
-            const settingsSheet = document.getElementById('settings-sheet');
-            const locationStatus = document.getElementById('location-status');
-            const mapLayersControl = document.getElementById('map-layers-control');
-            
-            const windChip = document.getElementById('wind-chip');
-            const precipitationChip = document.getElementById('precipitation-chip');
-            const humidityChip = document.getElementById('humidity-chip');
-            
-            const windValue = document.getElementById('wind-value');
-            const precipitationValue = document.getElementById('precipitation-value');
-            const humidityValue = document.getElementById('humidity-value');
-            
-            const toggleWind = document.getElementById('toggle-wind');
-            const togglePrecipitation = document.getElementById('toggle-precipitation');
-            const toggleHumidity = document.getElementById('toggle-humidity');
+  // ---------------- Map ----------------
+  let map = L.map('map').setView([20.5937, 78.9629], 5); // Default India
 
-            // --- MAP INITIALIZATION ---
-            const DEFAULT_COORDS = [20.5937, 78.9629]; // India
-            const DEFAULT_ZOOM = 5;
-            let map;
-            let currentMarker;
+  const layers = {
+    "Standard": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '' }).addTo(map),
+    "Topo": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: '' }),
+    "Satellite": L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', { attribution: '' })
+  };
 
-            // Define base map layers
-            const layers = {
-                standard: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                }),
-                topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-                    attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
-                }),
-                satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-                })
-            };
+  // ---------------- Geolocation ----------------
+  const locationStatus = document.getElementById('location-status');
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      map.setView([lat, lon], 10);
+      locationStatus.textContent = `Lat: ${lat.toFixed(2)}, Lon: ${lon.toFixed(2)}`;
+      fetchWeather(lat, lon);
+    },
+    (err) => {
+      showToast("Geolocation unavailable. Using default location.");
+      locationStatus.textContent = "India";
+      fetchWeather(20.5937, 78.9629);
+    }
+  );
 
-            // Initialize map
-            map = L.map('map', { zoomControl: false }).setView(DEFAULT_COORDS, DEFAULT_ZOOM);
-            L.control.zoom({ position: 'bottomright' }).addTo(map);
-            layers.standard.addTo(map);
+  // ---------------- Weather ----------------
+  async function fetchWeather(lat, lon) {
+    try {
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+      const data = await res.json();
+      const weather = data.current_weather;
+      document.getElementById('wind').innerHTML = `<i data-feather="wind"></i> Wind: ${weather.windspeed} km/h`;
+      document.getElementById('precip').innerHTML = `<i data-feather="cloud-rain"></i> Precipitation: ${weather.precipitation || 0} mm`;
+      document.getElementById('humidity').innerHTML = `<i data-feather="droplet"></i> Humidity: ${weather.humidity || '--'}%`;
+      feather.replace();
+    } catch(e) {
+      showToast("Failed to fetch weather data.");
+    }
+  }
 
-            // --- GEOLOCATION ---
-            const getGeolocation = () => {
-                if ('geolocation' in navigator) {
-                    navigator.geolocation.getCurrentPosition(
-                        (position) => {
-                            const { latitude, longitude } = position.coords;
-                            updateMapAndWeather(latitude, longitude, 'Your Location');
-                        },
-                        () => {
-                            showToast('Geolocation access denied. Showing weather for default location.', 'error');
-                            updateMapAndWeather(DEFAULT_COORDS[0], DEFAULT_COORDS[1], 'India (Default)');
-                        }
-                    );
-                } else {
-                    showToast('Geolocation is not available in your browser.', 'error');
-                    updateMapAndWeather(DEFAULT_COORDS[0], DEFAULT_COORDS[1], 'India (Default)');
-                }
-            };
-            
-            // --- WEATHER DATA ---
-            const fetchWeather = async (lat, lon) => {
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m&hourly=precipitation,relative_humidity_2m`;
-                try {
-                    const response = await fetch(url);
-                    if (!response.ok) throw new Error('Weather data not available.');
-                    const data = await response.json();
-                    updateWeatherUI(data);
-                } catch (error) {
-                    showToast('Failed to fetch weather data.', 'error');
-                    console.error('Weather fetch error:', error);
-                }
-            };
+  // ---------------- FAB & Sheet ----------------
+  const fab = document.getElementById('fab');
+  const sheet = document.getElementById('sheet');
+  fab.addEventListener('click', () => sheet.classList.toggle('show'));
 
-            // --- UI UPDATES ---
-            const updateMapAndWeather = (lat, lon, locationName) => {
-                map.setView([lat, lon], 13);
-                
-                // Add or move marker
-                if (currentMarker) {
-                    currentMarker.setLatLng([lat, lon]);
-                } else {
-                    currentMarker = L.marker([lat, lon]).addTo(map);
-                }
-                
-                locationStatus.textContent = locationName;
-                fetchWeather(lat, lon);
-            };
+  // ---------------- Segmented buttons ----------------
+  sheet.querySelectorAll('.segmented button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      sheet.querySelectorAll('.segmented button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const layerName = btn.dataset.layer;
+      Object.values(layers).forEach(l => map.removeLayer(l));
+      layers[layerName].addTo(map);
+    });
+  });
 
-            const updateWeatherUI = (data) => {
-                const { current, hourly } = data;
-                if (!current) return;
+  // ---------------- Checkboxes ----------------
+  sheet.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const chip = document.getElementById(cb.dataset.chip);
+      chip.style.display = cb.checked ? 'flex' : 'none';
+    });
+  });
 
-                windValue.textContent = `${current.wind_speed_10m} km/h`;
-                // Use the first hour's precipitation as it's often more current than the `current.precipitation` value
-                precipitationValue.textContent = `${hourly.precipitation[0]} mm`;
-                humidityValue.textContent = `${current.relative_humidity_2m} %`;
-            };
-
-            const showToast = (message, type = 'info') => {
-                const toastContainer = document.getElementById('toast-container');
-                const toast = document.createElement('div');
-                toast.className = `toast glass-ui absolute px-4 py-2 rounded-full text-sm font-medium shadow-lg`;
-                toast.textContent = message;
-                toastContainer.appendChild(toast);
-                setTimeout(() => {
-                    toast.remove();
-                }, 4000);
-            };
-            
-            const updateChipVisibility = () => {
-                windChip.classList.toggle('visible', toggleWind.checked);
-                precipitationChip.classList.toggle('visible', togglePrecipitation.checked);
-                humidityChip.classList.toggle('visible', toggleHumidity.checked);
-            }
-            
-            // --- EVENT LISTENERS ---
-            
-            // FAB click to toggle settings sheet
-            fab.addEventListener('click', () => {
-                settingsSheet.classList.toggle('active');
-            });
-            
-            // Map layer segmented control
-            mapLayersControl.addEventListener('click', (e) => {
-                if (e.target.tagName === 'BUTTON') {
-                    // Update active button style
-                    mapLayersControl.querySelector('button.active').classList.remove('active');
-                    e.target.classList.add('active');
-
-                    // Change map layer
-                    const layerName = e.target.dataset.layer;
-                    Object.values(layers).forEach(layer => map.removeLayer(layer));
-                    layers[layerName].addTo(map);
-                }
-            });
-
-            // Toggle chip visibility
-            [toggleWind, togglePrecipitation, toggleHumidity].forEach(toggle => {
-                toggle.addEventListener('change', updateChipVisibility);
-            });
-
-            // --- INITIALIZATION ---
-            feather.replace(); // Render icons
-            getGeolocation(); // Start the app by getting location
-            
-            // Set initial chip visibility with a slight delay for animation
-            setTimeout(updateChipVisibility, 500);
-
-        });
-    </script>
+  // ---------------- Toast ----------------
+  const toast = document.getElementById('toast');
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+  }
+</script>
 </body>
 </html>
