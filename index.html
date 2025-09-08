@@ -1,488 +1,273 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Apple-Style Weather — Liquid Glass</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glass UI Music Player</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles for the glass effect, animations, and player elements */
+        :root {
+            --shadow-color: 0deg 0% 0%;
+            --shadow-elevation-medium:
+                0.3px 0.5px 0.7px hsl(var(--shadow-color) / 0.34),
+                0.8px 1.6px 2px -0.8px hsl(var(--shadow-color) / 0.34),
+                2.1px 4.1px 5.2px -1.7px hsl(var(--shadow-color) / 0.34);
+        }
 
-<!-- Leaflet -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  integrity="sha256-sA+e2kGQ3pYB1g5Zk6q3q6b9q2qY8k2YQfCkq2fQ4oM=" crossorigin=""/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  integrity="sha256-o9N1j7k0zABk6r5m2QnqGq4T4w5oQXrFqCjF5a8g4+k=" crossorigin=""></script>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            /* Animated gradient background */
+            background: linear-gradient(315deg, #f97316, #4f46e5, #ec4899, #14b8a6);
+            background-size: 400% 400%;
+            animation: gradientBG 25s ease infinite;
+        }
 
-<!-- Feather icons -->
-<script src="https://unpkg.com/feather-icons"></script>
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
 
-<style>
-  :root{
-    --glass-bg: rgba(255,255,255,0.16);
-    --glass-border: rgba(255,255,255,0.25);
-    --glass-strong: rgba(255,255,255,0.20);
-    --muted: rgba(0,0,0,0.55);
-    --accent: rgba(10,120,255,0.95);
-    --chip-radius: 18px;
-  }
+        /* The main glass container for the player */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            -webkit-backdrop-filter: blur(30px);
+            backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: var(--shadow-elevation-medium);
+        }
 
-  /* --------- Base & fonts ---------- */
-  html,body{height:100%;margin:0;overflow:hidden}
-  body{
-    font-family: -apple-system, "SF Pro Rounded", "Segoe UI", Roboto, system-ui, "Helvetica Neue", Arial, sans-serif;
-    -webkit-font-smoothing:antialiased;
-    -moz-osx-font-smoothing:grayscale;
-    background: radial-gradient(circle at 10% 10%, #dfe8ff 0%, #f5f7ff 30%, #f9fbff 70%, #ffffff 100%);
-    color:#0b1220;
-    position:relative;
-  }
+        /* Styling for the progress and volume sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            background: transparent;
+            cursor: pointer;
+        }
 
-  /* subtle floating sheen */
-  body::after{
-    content:"";
-    position:absolute;
-    inset:-40%;
-    background: radial-gradient(40% 40% at 30% 25%, rgba(255,255,255,0.30), transparent 20%),
-                radial-gradient(30% 30% at 70% 75%, rgba(255,255,255,0.12), transparent 30%);
-    filter: blur(110px) saturate(120%);
-    animation: sheen 18s linear infinite;
-    pointer-events:none;
-    z-index:0;
-  }
-  @keyframes sheen{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+        /* Track styling for Webkit browsers (Chrome, Safari) */
+        input[type="range"]::-webkit-slider-runnable-track {
+            background: rgba(255, 255, 255, 0.2);
+            height: 4px;
+            border-radius: 2px;
+        }
 
-  /* ---------- Map ---------- */
-  #map { position:absolute; inset:0; z-index:0; }
+        /* Thumb (handle) styling for Webkit browsers */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            margin-top: -6px; /* Center the thumb on the track */
+            background-color: #ffffff;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+            transition: transform 0.2s ease-in-out;
+        }
 
-  /* ---------- Glass helper ---------- */
-  .glass{
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: 20px;
-    backdrop-filter: blur(20px) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-    box-shadow: 0 8px 30px rgba(9,20,40,0.08);
-    color: inherit;
-    z-index:1000;
-  }
+        input[type="range"]:hover::-webkit-slider-thumb {
+            transform: scale(1.1);
+        }
+        
+        /* Custom property to show progress fill */
+        .progress-bar {
+            position: relative;
+        }
 
-  /* ---------- Header ---------- */
-  #header{
-    position: fixed;
-    top: 18px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 14px 20px;
-    display:flex;
-    gap:8px;
-    align-items:center;
-    min-width:260px;
-    max-width:86%;
-    justify-content:center;
-  }
-  #title-wrap { display:flex; flex-direction:column; align-items:center; gap:2px; }
-  #appTitle { font-weight:700; font-size:1.15rem; margin:0; letter-spacing:0.2px; }
-  #location-status { margin:0; font-size:0.86rem; color:var(--muted); }
+        .progress-bar::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+            height: 4px;
+            width: var(--progress-width, 0%);
+            background-color: #fff;
+            border-radius: 2px;
+            pointer-events: none;
+            z-index: -1;
+        }
 
-  /* ---------- Chips stack ---------- */
-  .chips { position:fixed; right:18px; bottom:18px; display:flex; flex-direction:column; gap:12px; z-index:1000; }
-  .chip {
-    display:flex; align-items:center; gap:10px; padding:10px 14px;
-    border-radius: var(--chip-radius);
-    min-width:160px; max-width:260px;
-    font-size:0.95rem;
-    transition:transform .28s cubic-bezier(.2,.8,.2,1), opacity .25s;
-  }
-  .chip .value { font-weight:600; }
-  .chip-muted { color:var(--muted); font-size:0.85rem; font-weight:500; }
+        /* Album art animation */
+        .album-art.playing {
+            animation: rotateArt 20s linear infinite;
+        }
+        
+        @keyframes rotateArt {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
 
-  /* ---------- FAB ---------- */
-  #fab {
-    position: fixed;
-    left:18px; bottom:18px;
-    width:56px; height:56px; border-radius:50%;
-    display:grid; place-items:center; cursor:pointer;
-    transition: transform .18s ease, box-shadow .18s ease;
-  }
-  #fab:active{ transform:scale(.96) }
-
-  /* ---------- Sheet ---------- */
-  #sheet{
-    position: fixed;
-    left:18px; bottom:86px;
-    width:320px; max-width:calc(100% - 56px);
-    padding:14px; display:flex; flex-direction:column; gap:12px;
-    transform-origin: bottom left;
-    opacity:0; pointer-events:none; transform: translateY(8px) scale(.98);
-  }
-  #sheet.show{ opacity:1; pointer-events:auto; transform: translateY(0) scale(1); }
-
-  .segmented{ display:flex; gap:6px; }
-  .segmented button{
-    flex:1; padding:8px 10px; border-radius:12px; border:none; cursor:pointer;
-    background: rgba(255,255,255,0.10); font-weight:600;
-  }
-  .segmented button.active{ background: rgba(255,255,255,0.24); box-shadow: inset 0 -2px 0 rgba(0,0,0,0.04); }
-
-  .option-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-  .option-row label{ display:flex; gap:10px; align-items:center; font-weight:600; color:var(--muted); }
-  .option-row input[type="checkbox"]{ width:18px;height:18px; border-radius:6px; accent-color: var(--accent); }
-
-  /* ---------- Toast ---------- */
-  #toast{
-    position: fixed; left:50%; bottom:18px; transform:translateX(-50%);
-    padding:10px 16px; border-radius:12px; min-width:160px; text-align:center;
-    opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease;
-  }
-  #toast.show{ opacity:1; pointer-events:auto; transform: translateX(-50%) translateY(-6px); }
-
-  /* ---------- Wind canvas overlay ---------- */
-  #wind-canvas{
-    position:absolute; inset:0; z-index:500; pointer-events:none;
-  }
-
-  /* ---------- Responsive tweaks ---------- */
-  @media (max-width:520px){
-    #sheet{ width:260px; }
-    #header{ padding:12px 14px; }
-    .chip{ min-width:140px; }
-  }
-</style>
+    </style>
 </head>
-<body>
-  <!-- Header -->
-  <div id="header" class="glass">
-    <div id="title-wrap">
-      <div id="appTitle">Weather</div>
-      <div id="location-status">Detecting location…</div>
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen p-4">
+
+    <!-- Audio element (hidden) to control playback. No src needed for UI demo. -->
+    <audio id="audioPlayer"></audio>
+
+    <!-- Music Player Card -->
+    <div class="glass-card w-full max-w-sm rounded-3xl p-6 md:p-8 space-y-6">
+        
+        <!-- Album Art -->
+        <div class="aspect-square rounded-2xl overflow-hidden shadow-lg">
+            <img id="albumArt" src="https://placehold.co/400x400/1e293b/94a3b8?text=Music" 
+                 alt="Album Art" class="w-full h-full object-cover transition-transform duration-500 transform">
+        </div>
+
+        <!-- Track Information -->
+        <div class="text-center">
+            <h1 id="songTitle" class="text-2xl font-bold">Song Title</h1>
+            <p id="artistName" class="text-md font-light text-gray-300">Artist Name</p>
+        </div>
+
+        <!-- Progress Bar & Timestamps -->
+        <div class="space-y-2">
+            <div class="progress-bar">
+                <input id="progressSlider" type="range" value="0" min="0" max="100" class="w-full h-1">
+            </div>
+            <div class="flex justify-between text-xs font-light text-gray-300">
+                <span id="currentTime">0:00</span>
+                <span id="totalDuration">3:45</span>
+            </div>
+        </div>
+        
+        <!-- Player Controls -->
+        <div class="flex items-center justify-center space-x-6">
+            <!-- Previous Button -->
+            <button class="p-2 transition-transform hover:scale-110">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 19 2 12 11 5 11 19"></polygon><polygon points="22 19 13 12 22 5 22 19"></polygon></svg>
+            </button>
+            
+            <!-- Play/Pause Button -->
+            <button id="playPauseBtn" class="bg-white text-black rounded-full w-16 h-16 flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95">
+                <div id="playIcon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                </div>
+                <div id="pauseIcon" class="hidden">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                </div>
+            </button>
+
+            <!-- Next Button -->
+            <button class="p-2 transition-transform hover:scale-110">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 19 22 12 13 5 13 19"></polygon><polygon points="2 19 11 12 2 5 2 19"></polygon></svg>
+            </button>
+        </div>
+
     </div>
-  </div>
 
-  <!-- Map -->
-  <div id="map"></div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const audioPlayer = document.getElementById('audioPlayer');
+            const playPauseBtn = document.getElementById('playPauseBtn');
+            const playIcon = document.getElementById('playIcon');
+            const pauseIcon = document.getElementById('pauseIcon');
+            const progressSlider = document.getElementById('progressSlider');
+            const currentTimeEl = document.getElementById('currentTime');
+            const totalDurationEl = document.getElementById('totalDuration');
+            const albumArt = document.getElementById('albumArt');
 
-  <!-- Wind particle overlay -->
-  <canvas id="wind-canvas"></canvas>
+            // --- State ---
+            let isPlaying = false;
+            let duration = 225; // Mock duration in seconds (3:45)
+            let currentTime = 0;
+            let intervalId = null;
+            
+            // --- Helper Functions ---
+            
+            // Format time from seconds to MM:SS
+            const formatTime = (seconds) => {
+                const minutes = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${minutes}:${secs.toString().padStart(2, '0')}`;
+            };
+            
+            // Update the UI based on the current time
+            const updateProgress = () => {
+                // Update slider value
+                const progressPercent = (currentTime / duration) * 100;
+                progressSlider.value = progressPercent;
 
-  <!-- Chips -->
-  <div class="chips" id="chips">
-    <div id="chip-wind" class="chip glass">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h13a4 4 0 0 0 0-8 3 3 0 0 0-3 3"/></svg>
-      <div>
-        <div style="font-size:0.83rem;color:var(--muted)">Wind</div>
-        <div class="value" id="wind-value">-- km/h • --°</div>
-      </div>
-    </div>
+                // Update the visual fill of the progress bar
+                progressSlider.parentElement.style.setProperty('--progress-width', `${progressPercent}%`);
 
-    <div id="chip-precip" class="chip glass">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 13a4 4 0 0 0-8 0"/><path d="M12 3v4" /></svg>
-      <div>
-        <div style="font-size:0.83rem;color:var(--muted)">Precipitation</div>
-        <div class="value" id="precip-value">-- mm</div>
-      </div>
-    </div>
+                // Update current time text
+                currentTimeEl.textContent = formatTime(currentTime);
+            };
 
-    <div id="chip-humidity" class="chip glass">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2s-6 6-6 10a6 6 0 0 0 12 0c0-4-6-10-6-10z"/></svg>
-      <div>
-        <div style="font-size:0.83rem;color:var(--muted)">Humidity</div>
-        <div class="value" id="humidity-value">--%</div>
-      </div>
-    </div>
-  </div>
+            // Start simulating playback
+            const startPlayback = () => {
+                if (intervalId) clearInterval(intervalId); // Clear any existing interval
+                intervalId = setInterval(() => {
+                    currentTime++;
+                    if (currentTime >= duration) {
+                        currentTime = 0; // Loop the track
+                    }
+                    updateProgress();
+                }, 1000);
+            };
+            
+            // Stop simulating playback
+            const stopPlayback = () => {
+                clearInterval(intervalId);
+                intervalId = null;
+            };
 
-  <!-- FAB -->
-  <div id="fab" class="glass" title="Settings" aria-label="Settings">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82L4.3 3.7A2 2 0 1 1 7.13.87l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V1a2 2 0 0 1 4 0v.09c.0 .7 .4 1.33 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01c.6 .18 1.0 .8 1 .51H21a2 2 0 0 1 0 4h-.09c-.7 0-1.33.4-1.51 1z"/></svg>
-  </div>
+            // Toggle play/pause state
+            const togglePlayPause = () => {
+                isPlaying = !isPlaying;
+                if (isPlaying) {
+                    playIcon.classList.add('hidden');
+                    pauseIcon.classList.remove('hidden');
+                    albumArt.classList.add('playing');
+                    startPlayback();
+                } else {
+                    playIcon.classList.remove('hidden');
+                    pauseIcon.classList.add('hidden');
+                    albumArt.classList.remove('playing');
+                    stopPlayback();
+                }
+            };
+            
+            // Handle seeking with the progress slider
+            const seek = () => {
+                const newTime = (progressSlider.value / 100) * duration;
+                currentTime = newTime;
+                updateProgress();
+            };
 
-  <!-- Settings Sheet -->
-  <div id="sheet" class="glass" role="dialog" aria-hidden="true">
-    <div style="font-weight:700">Map Layer</div>
-    <div class="segmented" role="tablist">
-      <button data-layer="Standard" class="active" role="tab">Standard</button>
-      <button data-layer="Topo" role="tab">Topo</button>
-      <button data-layer="Satellite" role="tab">Satellite</button>
-    </div>
+            // --- Event Listeners ---
+            playPauseBtn.addEventListener('click', togglePlayPause);
+            progressSlider.addEventListener('input', seek);
+            
+            // When user starts dragging, pause time updates to prevent jitter
+            progressSlider.addEventListener('mousedown', () => {
+                if(isPlaying) stopPlayback();
+            });
 
-    <div style="height:6px"></div>
+            // When user releases, restart playback from new position if it was playing
+            progressSlider.addEventListener('mouseup', () => {
+                if(isPlaying) startPlayback();
+            });
+            
+            // --- Initial Setup ---
+            const init = () => {
+                totalDurationEl.textContent = formatTime(duration);
+                updateProgress();
+            };
 
-    <div style="font-weight:700">Overlays</div>
-    <div class="option-row">
-      <label><input type="checkbox" data-chip="wind" checked> Wind</label>
-      <div style="font-size:0.85rem;color:var(--muted)">Particles</div>
-    </div>
-    <div class="option-row">
-      <label><input type="checkbox" data-chip="precip" checked> Precipitation</label>
-      <div style="font-size:0.85rem;color:var(--muted)">Show chip</div>
-    </div>
-    <div class="option-row">
-      <label><input type="checkbox" data-chip="humidity" checked> Humidity</label>
-      <div style="font-size:0.85rem;color:var(--muted)">Show chip</div>
-    </div>
-  </div>
+            init();
+        });
+    </script>
 
-  <!-- Toast -->
-  <div id="toast" class="glass">Message</div>
-
-<script>
-/* ======== Utility & UI helpers ======== */
-const $ = q => document.querySelector(q);
-const $$ = q => Array.from(document.querySelectorAll(q));
-
-function showToast(msg, ms = 3500){
-  const t = $('#toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(t._timeout);
-  t._timeout = setTimeout(()=> t.classList.remove('show'), ms);
-}
-
-/* ======== Leaflet map & layers ======== */
-const map = L.map('map', { zoomControl:true, attributionControl:false }).setView([20.5937,78.9629],5);
-
-const baseLayers = {
-  "Standard": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }),
-  "Topo": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17 }),
-  "Satellite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 })
-};
-baseLayers.Standard.addTo(map);
-
-/* ---------- Wire segmented buttons ---------- */
-$$('#sheet .segmented button').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    $$('#sheet .segmented button').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    const name = btn.dataset.layer;
-    Object.values(baseLayers).forEach(l=> map.removeLayer(l));
-    baseLayers[name].addTo(map);
-  });
-});
-
-/* ======== Chips references ======== */
-const chipWind = $('#chip-wind');
-const chipPrecip = $('#chip-precip');
-const chipHumidity = $('#chip-humidity');
-const windValue = $('#wind-value');
-const precipValue = $('#precip-value');
-const humidityValue = $('#humidity-value');
-const locationStatus = $('#location-status');
-
-/* ======== Sheet toggle (FAB) ======== */
-const fab = $('#fab'), sheet = $('#sheet');
-fab.addEventListener('click', ()=>{
-  const showing = sheet.classList.toggle('show');
-  sheet.setAttribute('aria-hidden', !showing);
-});
-
-/* ======== Checkbox toggles for chips & wind particles ======== */
-$$('#sheet input[type="checkbox"]').forEach(cb=>{
-  const chipId = cb.dataset.chip;
-  cb.addEventListener('change', e=>{
-    const el = document.getElementById('chip-'+chipId);
-    if (el) el.style.display = cb.checked ? 'flex' : 'none';
-    // Wind particles handled separately via particle engine flag:
-    if (chipId === 'wind') {
-      windEngine.enabled = cb.checked;
-    }
-  });
-});
-
-/* ======== Toast initial (if geolocation not available) ======== */
-if (!navigator.geolocation) showToast('Geolocation not supported — using default location.');
-
-/* ======== Wind particle engine (canvas) ======== */
-const windCanvas = document.getElementById('wind-canvas');
-const ctx = windCanvas.getContext('2d');
-let DPR = Math.max(1, window.devicePixelRatio || 1);
-
-function resizeCanvas(){
-  const rect = windCanvas.getBoundingClientRect();
-  windCanvas.width = Math.round(rect.width * DPR);
-  windCanvas.height = Math.round(rect.height * DPR);
-  windCanvas.style.width = rect.width + 'px';
-  windCanvas.style.height = rect.height + 'px';
-  ctx.setTransform(DPR,0,0,DPR,0,0);
-}
-window.addEventListener('resize', ()=>{ resizeCanvas(); });
-
-const windEngine = {
-  particles: [],
-  count: 140,
-  windSpeed: 0, // km/h
-  windDir: 0,   // degrees, meteorological (wind from)
-  enabled: true,
-  spawn(){
-    // create or adjust count
-    const target = Math.min(240, Math.max(36, Math.round(this.count * (0.75 + Math.min(6,this.windSpeed)/12))));
-    while(this.particles.length < target){
-      this.particles.push(this._createOne());
-    }
-    while(this.particles.length > target) this.particles.pop();
-  },
-  _createOne(){
-    const x = Math.random()*innerWidth;
-    const y = Math.random()*innerHeight;
-    const life = 3 + Math.random()*4;
-    const speed = 10 + Math.random()*60;
-    return {x,y,vx:0,vy:0,age:0,life,speed,alpha:0};
-  },
-  step(dt){
-    if(!this.enabled) { ctx.clearRect(0,0,innerWidth,innerHeight); return; }
-    // convert windSpeed (km/h) -> px/sec (approx): 1 km/h ≈ 0.27778 m/s. Pixel scale approx ~0.5 m/pixel depends on zoom; we choose mapping empirically:
-    const ws = this.windSpeed;
-    const speedFactor = Math.max(0.1, ws/6); // scale
-    const rad = (270 - this.windDir) * Math.PI/180; // convert 'from' to screen direction (wind blows towards)
-    const wx = Math.cos(rad) * speedFactor * 60;
-    const wy = Math.sin(rad) * speedFactor * 60;
-
-    ctx.clearRect(0,0,innerWidth,innerHeight);
-    ctx.globalCompositeOperation = 'lighter';
-    for (let p of this.particles){
-      p.vx += (wx - p.vx) * 0.02 * (0.5 + Math.random()*0.8);
-      p.vy += (wy - p.vy) * 0.02 * (0.5 + Math.random()*0.8);
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-      p.age += dt/1000;
-      p.alpha = Math.min(1, p.age / 0.9);
-
-      // wrap
-      if (p.x < -30) p.x = innerWidth + 30;
-      if (p.x > innerWidth + 30) p.x = -30;
-      if (p.y < -30) p.y = innerHeight + 30;
-      if (p.y > innerHeight + 30) p.y = -30;
-
-      // draw streak
-      const len = Math.min(24, 4 + Math.abs(p.vx)+Math.abs(p.vy));
-      ctx.beginPath();
-      ctx.moveTo(p.x - p.vx*0.02, p.y - p.vy*0.02);
-      ctx.lineTo(p.x - p.vx*0.02 - (p.vx*0.02) * len, p.y - p.vy*0.02 - (p.vy*0.02)*len);
-      ctx.strokeStyle = `rgba(255,255,255,${0.025 * p.alpha})`;
-      ctx.lineWidth = 2 * Math.min(2.2, 0.6 + ws/20);
-      ctx.stroke();
-
-      // bright head
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, Math.max(0.6, Math.min(2.8, ws/18)), 0, Math.PI*2);
-      ctx.fillStyle = `rgba(255,255,255,${0.10 * p.alpha})`;
-      ctx.fill();
-    }
-  }
-};
-
-let lastTick = performance.now();
-function animate(){
-  const now = performance.now();
-  const dt = Math.min(60, now - lastTick);
-  lastTick = now;
-  windEngine.spawn();
-  windEngine.step(dt);
-  requestAnimationFrame(animate);
-}
-resizeCanvas();
-animate();
-
-/* ======== Weather fetching ======== */
-/*
- Open-Meteo: https://open-meteo.com/
- We'll request:
-  - current_weather=true
-  - hourly=relativehumidity_2m,precipitation
-  - timezone=auto (so hourly timestamps align)
-*/
-async function fetchWeather(lat, lon){
-  try {
-    const url = new URL("https://api.open-meteo.com/v1/forecast");
-    url.searchParams.set('latitude', lat);
-    url.searchParams.set('longitude', lon);
-    url.searchParams.set('current_weather', 'true');
-    url.searchParams.set('hourly', 'relativehumidity_2m,precipitation');
-    url.searchParams.set('timezone', 'auto');
-
-    const res = await fetch(url.toString(), {cache:'no-store'});
-    if(!res.ok) throw new Error('Weather API error');
-    const json = await res.json();
-
-    // current weather
-    const cw = json.current_weather || {};
-    const ws = cw.windspeed ?? 0; // km/h
-    const wd = cw.winddirection ?? 0; // deg
-
-    // find nearest hour index in hourly.time
-    let rh = '--', prec = '--';
-    if (json.hourly && Array.isArray(json.hourly.time)){
-      const times = json.hourly.time;
-      const nowISO = new Date().toISOString().slice(0,13); // YYYY-MM-DDTHH
-      // find index where time startsWith nowISO (most servers return full timestamp with minute)
-      let idx = times.findIndex(t => t.startsWith(nowISO));
-      if (idx === -1){
-        // fallback to nearest by difference
-        const nowMs = Date.now();
-        idx = times.reduce((best,i,j)=> {
-          const diff = Math.abs(new Date(i).getTime() - nowMs);
-          const bestDiff = Math.abs(new Date(times[best]).getTime() - nowMs);
-          return diff < bestDiff ? j : best;
-        }, 0);
-      }
-      if (idx >= 0){
-        rh = json.hourly.relativehumidity_2m?.[idx] ?? '--';
-        prec = json.hourly.precipitation?.[idx] ?? '--';
-      }
-    }
-
-    // Update UI
-    windValue.textContent = `${Math.round(ws)} km/h • ${Math.round(wd)}°`;
-    precipValue.textContent = `${prec === '--' ? '--' : (Math.round(prec*10)/10) } mm`;
-    humidityValue.textContent = `${rh === '--' ? '--' : Math.round(rh)}%`;
-
-    // update wind engine
-    windEngine.windSpeed = ws;
-    windEngine.windDir = wd;
-    // increase particle count slightly with wind
-    windEngine.count = 80 + Math.min(220, Math.round(ws*6));
-    windEngine.spawn();
-
-  } catch (err){
-    console.error(err);
-    showToast('Failed to fetch weather.');
-  }
-}
-
-/* ======== Geolocation logic ======== */
-function setViewAndFetch(lat, lon, label){
-  map.setView([lat, lon], 10, {animate:true});
-  if (label) locationStatus.textContent = label;
-  else locationStatus.textContent = `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
-  fetchWeather(lat, lon);
-}
-
-if (navigator.geolocation){
-  navigator.geolocation.getCurrentPosition(pos=>{
-    setViewAndFetch(pos.coords.latitude, pos.coords.longitude, 'Your location');
-  }, err=>{
-    showToast('Geolocation unavailable — using default (India).');
-    setViewAndFetch(20.5937, 78.9629, 'India (default)');
-  }, {timeout:8000});
-} else {
-  setViewAndFetch(20.5937, 78.9629, 'India (default)');
-}
-
-/* ======== Map click: place a marker & fetch weather for clicked point ======== */
-let clickMarker = null;
-map.on('click', async (e) => {
-  if (clickMarker) map.removeLayer(clickMarker);
-  clickMarker = L.marker(e.latlng).addTo(map);
-  setViewAndFetch(e.latlng.lat, e.latlng.lng, `Lat ${e.latlng.lat.toFixed(2)}, Lon ${e.latlng.lng.toFixed(2)}`);
-});
-
-/* ======== Small accessibility & finishing touches ======== */
-window.addEventListener('load', ()=> {
-  // ensure feather icons if any (we used inline svgs)
-  // adjust initial chip visibility from sheet controls
-  $$('[data-chip]').forEach(cb=>{
-    const id = cb.dataset.chip;
-    const el = document.getElementById('chip-'+id);
-    if (el) el.style.display = cb.checked ? 'flex' : 'none';
-  });
-});
-</script>
 </body>
 </html>
+
