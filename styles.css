@@ -1,0 +1,149 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif; /* Simple font; change to Apple's if you have it */
+    background: linear-gradient(135deg, #0f0f23, #1a1a2e); /* Dark background for glass effect */
+    color: white;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.container {
+    max-width: 400px; /* Good for phones */
+    padding: 20px;
+}
+
+/* Liquid Glass Effect: Blurry, glossy, translucent */
+.glass {
+    background: rgba(255, 255, 255, 0.1); /* Semi-transparent */
+    backdrop-filter: blur(15px); /* Blurry background (Apple-like) */
+    border: 1px solid rgba(255, 255, 255, 0.2); /* Light border */
+    border-radius: 20px; /* Rounded corners */
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); /* Shadow for depth */
+    padding: 20px;
+    margin: 10px 0;
+    transition: transform 0.3s ease; /* Smooth hover/move */
+}
+
+.glass:hover {
+    transform: scale(1.02); /* Slight zoom on touch */
+}
+
+/* Toggle Switch (Apple-style) */
+.toggle-label {
+    display: inline-block;
+    position: relative;
+    width: 60px;
+    height: 34px;
+    margin: 20px 0;
+}
+
+.toggle-label input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-switch {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.toggle-switch:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .toggle-switch {
+    background-color: #2196F3; /* Blue when checked (white side) */
+}
+
+input:checked + .toggle-switch:before {
+    transform: translateX(26px); /* Slide to right for black */
+}
+
+.toggle-label span {
+    position: absolute;
+    left: 70px; /* Text next to switch */
+    top: 5px;
+    font-size: 18px;
+}
+
+/* Button */
+button.glass {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+button.glass:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Chessboard (8x8 grid) */
+#chessboard {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    width: 100%;
+    max-width: 400px;
+    aspect-ratio: 1 / 1; /* Square board */
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 20px auto;
+}
+
+.square {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px; /* Piece size */
+    cursor: grab;
+    transition: background 0.2s; /* Smooth color change */
+}
+
+.light {
+    background: #f0d9b5; /* Light square color */
+}
+
+.dark {
+    background: #b58863; /* Dark square color */
+}
+
+/* Suggestion Box (below board) */
+#suggestion-box {
+    position: relative;
+    bottom: -10px;
+    width: 80%;
+    margin: 0 auto;
+    animation: fadeIn 0.5s ease; /* Smooth appear */
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+#piece-icon {
+    font-size: 24px; /* For Unicode icons like ♘ (knight) */
+}
