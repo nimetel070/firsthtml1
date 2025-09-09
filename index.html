@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Makes it mobile-friendly -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chess Game</title>
-    <link rel="stylesheet" href="styles.css"> <!-- Links your CSS -->
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
@@ -13,7 +13,7 @@
             <h1>Chess Challenge</h1>
             <p>Choose your side (you get secret help!)</p>
             <label class="toggle-label">
-                <input type="checkbox" id="side-toggle" checked> <!-- Checked = white by default -->
+                <input type="checkbox" id="side-toggle" checked>
                 <span class="toggle-switch">Play as White (bottom)</span>
             </label>
             <button id="start-btn" class="glass">Start Game</button>
@@ -23,22 +23,18 @@
         <!-- Game screen: Hidden at first -->
         <div id="game-screen" style="display: none;">
             <div id="status" class="glass">Turn: Loading...</div>
-            <div id="chessboard"></div> <!-- Where the board goes (JS will fill this) -->
+            <div id="chessboard"></div>
             <div id="suggestion-box" class="glass" style="display: none;">
                 <strong>Secret Move:</strong> <span id="suggestion-text"></span>
-                <span id="piece-icon"></span> <!-- For rook/knight icons -->
+                <span id="piece-icon"></span>
                 <p>Drag the piece to make this move.</p>
             </div>
         </div>
     </div>
 
-    <!-- Load JS files -->
-    <script src="chess.js"></script> <!-- Chess rules -->
-    <script src="stockfish.js"></script> <!-- AI suggestions -->
+    <!-- Updated CDN Scripts: Load chess.js first, then stockfish.js, then your script -->
+    <script src="https://unpkg.com/chess.js@1.0.0/chess.js"></script> <!-- Latest chess.js v1.0.0 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js"></script> <!-- Latest stockfish.js v10.0.2 with WASM -->
     <script src="script.js"></script> <!-- Your game code -->
-    <!-- Load from CDN - no local files needed -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/1.0.0-beta.6/chess.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js"></script>
-<script src="script.js"></script> <!-- Your game code -->
 </body>
 </html>
