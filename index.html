@@ -3,38 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chess Game</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Zeta's Cheater Chess</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <!-- Start screen: Choose side -->
-        <div id="start-screen" class="glass">
-            <h1>Chess Challenge</h1>
-            <p>Choose your side (you get secret help!)</p>
-            <label class="toggle-label">
-                <input type="checkbox" id="side-toggle" checked>
-                <span class="toggle-switch">Play as White (bottom)</span>
-            </label>
-            <button id="start-btn" class="glass">Start Game</button>
-            <p>Pass the device for opponent's turns.</p>
+    <div class="game-container">
+        <div class="board-container">
+            <h1>Zeta's Chess</h1>
+            <div id="chessboard" class="chessboard"></div>
         </div>
-
-        <!-- Game screen: Hidden at first -->
-        <div id="game-screen" style="display: none;">
-            <div id="status" class="glass">Turn: Loading...</div>
-            <div id="chessboard"></div>
-            <div id="suggestion-box" class="glass" style="display: none;">
-                <strong>Secret Move:</strong> <span id="suggestion-text"></span>
-                <span id="piece-icon"></span>
-                <p>Drag the piece to make this move.</p>
-            </div>
+        <div class="cheater-panel">
+            <h2>AI Guidance</h2>
+            <div id="ai-suggestion" class="ai-suggestion">
+                </div>
+            <button id="reset-button">Reset Game</button>
         </div>
     </div>
 
-    <!-- Updated CDN Scripts: Load chess.js first, then stockfish.js, then your script -->
-    <script src="https://unpkg.com/chess.js@1.0.0/chess.js"></script> <!-- Latest chess.js v1.0.0 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js"></script> <!-- Latest stockfish.js v10.0.2 with WASM -->
-    <script src="script.js"></script> <!-- Your game code -->
+    <script src="script.js"></script>
 </body>
 </html>
