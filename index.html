@@ -3,158 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zeta's Cheater Chess</title>
-    <link rel="stylesheet" href="style.css">
-    <style>
-        body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    background-color: #2c2f33; /* Dark background for Zeta */
-    color: #ffffff;
-    margin: 0;
-    overflow: hidden; /* Hide potential scrollbars */
-}
-
-.game-container {
-    display: flex;
-    gap: 40px; /* Space between board and cheater panel */
-    align-items: flex-start; /* Align top of board and panel */
-}
-
-.board-container {
-    text-align: center;
-}
-
-h1 {
-    color: #7289da; /* Discord-like blue for heading */
-    margin-bottom: 20px;
-}
-
-.chessboard {
-    display: grid;
-    grid-template-columns: repeat(8, 60px); /* 8 columns, 60px each */
-    grid-template-rows: repeat(8, 60px); /* 8 rows, 60px each */
-    border: 4px solid #4f545c; /* Board border */
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-}
-
-.square {
-    width: 60px;
-    height: 60px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 3em; /* Piece size */
-    cursor: pointer;
-    user-select: none;
-    transition: background-color 0.2s ease;
-    color: #cccccc; /* Default piece color */
-}
-
-.light {
-    background-color: #ebecd0; /* Light squares */
-}
-
-.dark {
-    background-color: #779556; /* Dark squares */
-}
-
-.square.selected {
-    background-color: #a6c736; /* Selected square highlight */
-}
-
-.square.possible-move {
-    background-color: #ffda6a; /* Possible move highlight */
-    border: 2px solid #e6b300;
-}
-
-.piece {
-    font-size: 2.5em; /* Adjust piece size */
-    line-height: 1; /* Align piece vertically */
-    color: inherit; /* Inherit color from square initially */
-}
-
-.piece.black-piece {
-    color: #222222; /* Black pieces */
-}
-
-.piece.white-piece {
-    color: #ffffff; /* White pieces */
-}
-
-.cheater-panel {
-    background-color: #36393f; /* Darker panel background */
-    padding: 25px;
-    border-radius: 10px;
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
-    width: 280px; /* Fixed width for the panel */
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start; /* Align content to the top */
-}
-
-.cheater-panel h2 {
-    color: #99aab5; /* Light grey heading */
-    margin-top: 0;
-    margin-bottom: 20px;
-}
-
-.ai-suggestion {
-    min-height: 80px; /* Ensure space even when empty */
-    background-color: #2f3136; /* Darker background for suggestion area */
-    border: 1px solid #40444b;
-    border-radius: 5px;
-    padding: 15px;
-    font-size: 1.3em;
-    color: #7289da; /* Blue for the suggestion text */
-    text-align: center;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-grow: 1; /* Allows it to take available space */
-
-    opacity: 0.1; /* Start with very low opacity */
-    transition: opacity 1.5s ease-in-out; /* Smooth transition */
-}
-
-.ai-suggestion.visible {
-    opacity: 1; /* Full opacity when visible */
-}
-
-#reset-button {
-    background-color: #f04747; /* Red button */
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 1em;
-    margin-top: 25px; /* Space above button */
-    transition: background-color 0.3s ease;
-}
-
-#reset-button:hover {
-    background-color: #c73636;
-}
-    </style>
-</head>
+    <title>Zeta Vector Forge - Alpha's Command</title>
+    <link rel="stylesheet" href="styles.css"> </head>
 <body>
-    <div class="game-container">
-        <div class="board-container">
-            <h1>Zeta's Chess</h1>
-            <div id="chessboard" class="chessboard"></div>
-        </div>
-        <div class="cheater-panel">
-            <h2>AI Guidance</h2>
-            <div id="ai-suggestion" class="ai-suggestion">
-                </div>
-            <button id="reset-button">Reset Game</button>
-        </div>
-    </div>
+    <div id="editor-container">
 
-    <script src="script.js"></script>
-</body>
+        <header id="top-bar">
+            <h1>Zeta Vector Forge 👽</h1>
+            <nav id="file-tabs">
+                <button id="btn-open">Open SVG 📥</button>
+                <button id="btn-save">Save SVG 📤</button>
+                <input type="file" id="file-input" accept=".svg" style="display: none;"> 
+            </nav>
+        </header>
+
+        <main id="workspace">
+            
+            <aside id="left-sidebar">
+                <button id="tool-pen" class="tool-btn">Pen Tool ✏️</button>
+                <button id="tool-rect" class="tool-btn">Rectangle 🟥</button>
+                <button id="tool-select" class="tool-btn">Selector 🖱️</button>
+                </aside>
+
+            <section id="canvas-area">
+                <svg id="vector-canvas" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                    </svg>
+            </section>
+
+            <aside id="right-sidebar">
+                <h2>Fucking Properties</h2>
+                </aside>
+
+        </main>
+    </div>
+    <script src="app.js"></script> </body>
 </html>
